@@ -259,10 +259,10 @@ void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
       m.setObjective(expr,GRB_MAXIMIZE);
       
       //m.write("model.lp");
-      freopen("post_pr.txt", "a", stdout);
+      //freopen("post_pr.txt", "a", stdout);
       m.optimize();
-      freopen("/dev/tty", "w", stdout);
-      remove("post_pr.txt");
+      //freopen("/dev/tty", "w", stdout);
+      //remove("post_pr.txt");
       b[t] = b_var.get(GRB_DoubleAttr_X);
       eps[t] = e_min.get(GRB_DoubleAttr_X);
       double sum_a = 0;
@@ -448,10 +448,10 @@ bool Tree::changeSplit(int t, vector<int> points, int& misclassif, dataset& dt, 
 
   md.setObjective(Lt[0] + Lt[1], GRB_MINIMIZE);
   md.set("TimeLimit", to_string(60)); // just in case it takes too much time
-  freopen("reducingComplexity.txt", "a", stdout);
+  //freopen("reducingComplexity.txt", "a", stdout);
   md.optimize();
-  freopen("/dev/tty", "w", stdout);
-  remove("reducingComplexity.txt");
+  //freopen("/dev/tty", "w", stdout);
+  //remove("reducingComplexity.txt");
 
   if (misclassif > md.get(GRB_DoubleAttr_ObjVal)){
     misclassif = md.get(GRB_DoubleAttr_ObjVal);

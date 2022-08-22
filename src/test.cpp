@@ -293,64 +293,52 @@ void learning_test(string dataset_name, int depth_max, double mu){
 
     now = time(0);
     date = ctime(& now);
-    cout << "OCT - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model OCT - start : "<< date<<endl; 
     tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, true, depth_max, time_limit_univ, Nmin);
     results.write_line(p,model_cpt,"OCT",time_limit_univ,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "OCT - finish : "<< date<<endl; 
     
     now = time(0);
     date = ctime(& now);
-    cout << "FOCT - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model FOCT - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::FOCT, true, depth_max, time_limit_univ, Nmin);
     results.write_line(p,model_cpt,"FOCT",time_limit_univ,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "FOCT - finish : "<< date<<endl; 
 
     now = time(0);
     date = ctime(& now);
-    cout << "F - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model F - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::F, true, depth_max, time_limit_univ,0);
     results.write_line(p,model_cpt,"F",time_limit_univ,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "F - finish : "<< date<<endl; 
 
     now = time(0);
     date = ctime(& now);
-    cout << "OCTH - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model OCTH - start : "<< date<<endl; 
     tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, false, depth_max, time_limit_multiv, Nmin);
     results.write_line(p,model_cpt,"OCTH",time_limit_multiv,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "OCTH - finish : "<< date<<endl; 
 
     now = time(0);
     date = ctime(& now);
-    cout << "FOCTH - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model FOCTH - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::FOCT, false, depth_max, time_limit_multiv, Nmin);
     results.write_line(p,model_cpt,"FOCTH",time_limit_multiv,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "FOCTH - finish : "<< date<<endl; 
 
     now = time(0);
     date = ctime(& now);
-    cout << "FH - start : "<< date<<endl; 
+    cout << endl;
+    cout << "Partition "<< p << " / " << nb_part << " - Model FH - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::F, false, depth_max, time_limit_multiv, 0);
     results.write_line(p,model_cpt,"FH",time_limit_multiv,tr);
     model_cpt += 1;
-    now = time(0);
-    date = ctime(& now);
-    cout << "FH - finish : "<< date<<endl; 
-    
+
     results.write_result_partition(p);
   }
   

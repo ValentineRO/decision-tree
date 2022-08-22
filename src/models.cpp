@@ -20,7 +20,7 @@ build_model::build_model(GRBModel& md, dataset& dt, model_type modelt, parameter
 
   md.update();
 
-  md.write("model.lp");
+  //md.write("model.lp");
 }
 
 void build_model::add_warmstart(Tree T, dataset &dt){
@@ -375,10 +375,9 @@ void build_model::get_z(int z[]){
 solution build_model::solve(GRBModel& md, double time_limit){
   md.set("TimeLimit", to_string(time_limit));
   
-  freopen("gurobi_text.txt", "a", stdout);
+  //freopen("gurobi_text.txt", "a", stdout);
   md.optimize();
-  freopen("/dev/tty", "w", stdout);
-  remove("gurobi_text.txt");
+  //freopen("/dev/tty", "w", stdout);
 
   double obj_val = md.get(GRB_DoubleAttr_ObjVal);
   int nb_br = compute_number_branchings();
