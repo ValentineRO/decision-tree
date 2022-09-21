@@ -137,13 +137,10 @@ void Tree::post_processing_b(dataset& dt, bool missClassifCounts, float rho){
     
 }
 
-void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
+void Tree::compute_ILIR(vector<int>* I_L, vector<int>* I_R, dataset& dt,  bool missClassifCounts){
   int* pred = new int[dt.I];
   predict_classes(dt,pred);
-
-  vector<int>* I_L = new vector<int>[N];
-  vector<int>* I_R = new vector<int>[N];
-
+  
   for (int i=0; i<dt.I; i++){
     if (missClassifCounts||((!missClassifCounts)&&(pred[i]==dt.Y[i]))){
       int node = 0;
@@ -166,6 +163,15 @@ void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
       }
     }
   }
+}
+
+void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
+  int* pred = new int[dt.I];
+  predict_classes(dt,pred);
+
+  vector<int>* I_L = new vector<int>[N];
+  vector<int>* I_R = new vector<int>[N];
+  compute_ILIR(I_L, I_R, dt, missClassifCounts);
   
   GRBEnv env = GRBEnv();
   for (int t=0; t<N; t++){    
@@ -681,7 +687,31 @@ void Tree::data_points_in_last_split(dataset& dt, vector<int> points_in_leaf[]){
   
 }
 
-void Tree::predict_leaves(dataset& dt, int leaves[], double mu, double* mu_vect){
+void Tree::predictLeaves(dataset& dt, int* leaves){
+  for (int i=0;i<dt.I;i++){
+    int node = 1;
+    for (int d=0; d<D;d++){
+      if (c[node-1]>=0){
+	break;
+      }
+      double sum=0;
+      for (int j=0; j<J;j++){
+	sum += dt.X[i*J+j]*a[(node-1)*J+j];
+	
+      }
+      if (sum<b[node-1]){node = 2*node;}
+      else{node = node*2 +1;}
+    }
+    if (node-1<N){
+      leaves[i] = right_most_leaf[node-1]-N;
+    }
+    else{
+      leaves[i] = node-1-N;
+    }
+  }
+}
+
+void Tree::predict_leaves(dataset& dt, int* leaves, double mu, double* mu_vect){
   for (int i=0;i<dt.I;i++){
     int node = 1;
     for (int d=0; d<D;d++){

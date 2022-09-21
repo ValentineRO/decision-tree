@@ -36,7 +36,12 @@ objective::objective(GRBModel& md, variables var, model_type mt, parameters p, d
       for (int k = 0; k < p.K; k++) {
 	for (int i = 0; i < p.I; i++) {
 	  if (dt.Y[i] != k) {
-	    expr += var.c[t * p.K + k] * var.z[i * p.L + t] / p.L_hat;
+	    if (dt.weightedPoints){
+	      expr += dt.weights[i] * var.c[t * p.K + k] * var.z[i * p.L + t] / p.L_hat;
+	    }
+	    else{
+	      expr += var.c[t * p.K + k] * var.z[i * p.L + t] / p.L_hat;
+	    }
 	  }
 	}
       }
@@ -60,9 +65,19 @@ objective::objective(GRBModel& md, variables var, model_type mt, parameters p, d
       }
     }
     if (mt.base == baseModel::F){
-      expr += (float)p.I/ (float)p.L_hat;
+      if (dt.weightedPoints){
+	expr += (float)dt.initialI/ (float)p.L_hat;
+      }
+      else{
+	expr += (float)p.I/ (float)p.L_hat;
+      }
       for (int i=0; i<p.I; i++){
-        expr -= var.u[i*p.E]/ p.L_hat;
+	if (dt.weightedPoints){
+	  expr -= dt.weights[i] * var.u[i*p.E]/ p.L_hat;
+	}
+	else{
+	  expr -= var.u[i*p.E]/ p.L_hat;
+	}
       }
     }
     if (mt.base == baseModel::FOCT){
@@ -70,7 +85,12 @@ objective::objective(GRBModel& md, variables var, model_type mt, parameters p, d
 	for (int k=0; k<p.K; k++){
 	  if (dt.Y[i] !=k){
 	    for (int t=0; t<p.L; t++){
-	      expr += var.theta[t*p.I*p.K+i*p.K+k]/ p.L_hat;
+	      if (dt.weightedPoints){
+		expr += dt.weights[i] * var.theta[t*p.I*p.K+i*p.K+k]/ p.L_hat;
+	      }
+	      else{
+		expr += var.theta[t*p.I*p.K+i*p.K+k]/ p.L_hat;
+	      }
 	    }
 	  }
 	}

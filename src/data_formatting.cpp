@@ -16,65 +16,87 @@ void dataset::compute_L_hat(){
 }
 
 dataset::dataset(){
-    X = {};
-    I = 0;
-    J = 0;
-    K = 0;
+  X = {};
+  I = 0;
+  J = 0;
+  K = 0;
+
+  weightedPoints = 0;
 }
 
 dataset::dataset(int I_, int J_, int K_) {
-    I = I_;
-    J = J_;
-    K = K_;
-    X = new double[I*J];
-    Y = new int[I];
+  I = I_;
+  J = J_;
+  K = K_;
+  X = new double[I*J];
+  Y = new int[I];
+
+  weightedPoints = 0;
 }
 
 dataset::dataset(string namefile) {
-    fstream file;
-    name = namefile;
-    partition = -1;
-    file.open("../data/"+namefile+".txt", ios::in); // ios::out pour écrire et ios::in pour lire
-    file >> I;
-    file >> J;
-    file >> K;
-    //cout << "I : " << I << " J : " << J << " K: " << K << "\n";
-    X = new double[I * J];
-    int k, l;
-    for (int i = 0; i < I; i++) {
-        for (int j = 0; j < J; j++) {
-            file >> X[i * J + j];
-            //cout << "xij : " << X[i * J + j] << "\n";
-        }
+  fstream file;
+  name = namefile;
+  partition = -1;
+  file.open("../data/"+namefile+".txt", ios::in); // ios::out pour écrire et ios::in pour lire
+  file >> I;
+  file >> J;
+  file >> K;
+  //cout << "I : " << I << " J : " << J << " K: " << K << "\n";
+  X = new double[I * J];
+  int k, l;
+  for (int i = 0; i < I; i++) {
+    for (int j = 0; j < J; j++) {
+      file >> X[i * J + j];
+      //cout << "xij : " << X[i * J + j] << "\n";
     }
-    Y = new int[I];
-    for (int i = 0; i < I; i++) {
-        file >> Y[i];
-        //cout << "y : " << Y[i] << "\n";
-    }
-    file.close();
-    compute_mu();
-    compute_L_hat();
+  }
+  Y = new int[I];
+  for (int i = 0; i < I; i++) {
+    file >> Y[i];
+    //cout << "y : " << Y[i] << "\n";
+  }
+  file.close();
+  compute_mu();
+  compute_L_hat();
+
+  weightedPoints = 0;
 }
 
 void dataset::compute_mu(){
-    mu_vect = new double[J];
-    mu_min = 1;
-    mu_max = 0;
+  mu_vect = new double[J];
+  mu_min = 1;
+  mu_max = 0;
 
-    for (int j=0; j<J; j++){
-        mu_vect[j] = 1;
-        for (int i1=0; i1<I; i1++){
-            for (int i2=i1+1; i2<I; i2++){
-                double space = abs(X[i1*J+j]-X[i2*J+j]);
-                if (space != 0.0){
-                    mu_vect[j] = min(mu_vect[j],space);
-                }
-            }
-        }
-        mu_min = min(mu_min,mu_vect[j]);
-        mu_max = max(mu_max, mu_vect[j]);
+  for (int j=0; j<J; j++){
+    mu_vect[j] = 1;
+    for (int i1=0; i1<I; i1++){
+      for (int i2=i1+1; i2<I; i2++){
+	double space = abs(X[i1*J+j]-X[i2*J+j]);
+	if (space != 0.0){
+	  mu_vect[j] = min(mu_vect[j],space);
+	}
+      }
     }
+    mu_min = min(mu_min,mu_vect[j]);
+    mu_max = max(mu_max, mu_vect[j]);
+  }
+}
+
+void dataset::computeDists(){
+  dists = new double[I*I];
+
+  for (int i1=0; i1<I; i1++){
+    dists[i1*I+i1] = 0;
+    for (int i2 = i1 +1; i2<I; i2++){
+      double d = 0;
+      for (int j=0; j<J; j++){
+	d += (X[i1*J+j] - X[i2*J+j])*(X[i1*J+j] - X[i2*J+j]);
+      }
+      dists[i1*I+i2] = d;
+      dists[i2*I+i1] = d;
+    }
+  }
 }
 
 void dataset::partitionning(dataset& train, dataset& test, float p){

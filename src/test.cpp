@@ -345,3 +345,75 @@ void learning_test(string dataset_name, int depth_max, double mu){
   results.write_csv("../results/"+dataset_name+"_DMAX"+to_string(depth_max) + "_learning_test.csv");
 }
  
+void testClust(string datasetName){
+  GRBEnv env = GRBEnv();
+  dataset dt = dataset(datasetName);
+
+  int nbPart = 5;
+  
+  for (int p=0; p<nbPart; p++){
+    dataset dt_train, dt_test, dt_validation;
+    dt.readPartition(p,dt_train, dt_validation, dt_test);
+
+    int Nmin = (int)floor(0.05*dt_train.I);
+
+    vector<clustering> clz;
+    vector<string> clzNames;
+    for (int gm=1; gm<10; gm++){
+      clz.push_back(greedyClustering(dt_train,gm/10));
+      clzNames.push_back("Greedy"+to_string(gm)+"0%");
+    }
+    clz.push_back(homogeneousClustering(dt_train, false));
+    clzNames.push_back("AlgoLongBary");
+    clz.push_back(homogeneousClustering(dt_train, true));
+    clzNames.push_back("AlgoLongMedoid");
+    clz.push_back(weightedGreedyClustering(dt_train));
+    clzNames.push_back("BetterGreedy");
+    
+    for (int D=2; D<5; D++){
+      int Cmin = D,
+  	CmaxU = pow(2,D)-1,
+	CmaxM = dt.J*(pow(2,D) -1);
+      
+      model_type mtz[4] = {model_type(baseModel::FOCT,true, false, true, false),
+			model_type(baseModel::FOCT,true, false, true, false),
+			model_type(baseModel::FOCT,false, false, true, false),
+			model_type(baseModel::FOCT,false, false, true, false)};
+
+      parameters paramz[4] = {parameters(D, dt_train, 1/(Cmin*2), 0.00001, Cmin, false, Nmin),
+			      parameters(D, dt_train, 1/(CmaxU*2), 0.00001, CmaxU, false, Nmin),
+			      parameters(D, dt_train, 1/(Cmin*2), 0.00001, Cmin, false, Nmin),
+			      parameters(D, dt_train, 1/(CmaxM*2), 0.00001, CmaxM, false, Nmin)};
+      for (int i=0; i<4; i++){
+	string typeOfSplit;
+	if (mtz[i].univ){
+	  typeOfSplit = "UNIV";
+	}
+	else{
+	  typeOfSplit = "MULTIV";
+	}
+	
+	for (int c=0; c<clz.size(); c++){
+	  string filename = "../resultsIteratingAlgo/" + dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+	  solClust solC = decontractingAlgorithm(dt_train, clz[c], mtz[i], paramz[i]);
+	  solC.errTr = solC.T.prediction_errors(dt_train);
+	  solC.errTst = solC.T.prediction_errors(dt_test);
+	  solC.write(filename);
+	}
+	string filename = "../resultsIteratingAlgo/" + dt.name + "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+
+	GRBModel foct = GRBModel(env);
+	build_model FOCT = build_model(foct,dt_train,mtz[i],paramz[i]);
+	solution sol = FOCT.solve(foct,3600);
+     
+
+	fstream file;
+	file.open(filename,ios::out);
+	file << sol.time <<endl;
+	file << sol.T.prediction_errors(dt_train) << endl;
+	file << sol.T.prediction_errors(dt_test) << endl;
+	file.close();
+      }
+    }
+  }
+}

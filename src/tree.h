@@ -30,6 +30,7 @@ public:
     // fonction permettant de "remplir" les coefficients d'un arbre défini par Tree(int D_, int J_, int K_)
     void post_processing_b(dataset& dt, bool missClassifCounts=false, float rho=0.5); // remplir les valeurs de a, b etc avec le post-traitement sur b
     void post_processing_a_b(dataset& dt, bool missClassifCounts=false); // remplir les valeurs de a, b etc avec le post-traitement sur a et b
+    void compute_ILIR(vector<int>* I_L, vector<int>* I_R, dataset& dt, bool missClassifCounts=false); // IL and IR must be empty
 
     // fonction permettant d'agrandir un arbre
     Tree bigger_tree(int new_D);
@@ -46,7 +47,8 @@ public:
     int prediction_errors(dataset& dt);
     void data_points_per_leaves(dataset& dt, int repartition[]); // repartition[t*K+k] is the number of data point of class k in node t
     void data_points_in_last_split(dataset& dt, vector<int> points_in_node[]);
-    void predict_leaves(dataset& dt, int leaves[], double mu = -1.0, double* vect_mu ={}); // for OCT warm-start: leaves \in [0, L[
+    void predictLeaves(dataset& dt, int* leaves);
+    void predict_leaves(dataset& dt, int* leaves, double mu = -1.0, double* vect_mu ={}); // for OCT warm-start: leaves \in [0, L[
     void predict_paths(dataset& dt, vector<int> paths[]); // for F warm-start
 
     // fonction permettant d'écrire ou lire un arbre avec des fichiers .txt
