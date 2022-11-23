@@ -34,7 +34,7 @@ objective::objective(GRBModel& md, variables var, model_type mt, parameters p, d
     GRBQuadExpr expr = 0;
     for (int t = 0; t < p.L; t++) {
       for (int k = 0; k < p.K; k++) {
-	for (int i = 0; i < p.I; i++) {
+	for (int i = 0; i < dt.I; i++) {
 	  if (dt.Y[i] != k) {
 	    if (dt.weightedPoints){
 	      expr += dt.weights[i] * var.c[t * p.K + k] * var.z[i * p.L + t] / p.L_hat;

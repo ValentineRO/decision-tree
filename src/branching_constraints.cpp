@@ -36,8 +36,8 @@ branching_constraints::branching_constraints(GRBModel& md, variables var, model_
 	  left_b_mb_d += (1+p.mu_max)*(1-var.u[index_u_tlt]);
 	}
 	else{
-	  left_b_mb_g += p.mu;
-	  left_b_mb_d += (2+p.mu)*(1-var.u[index_u_tlt]);
+	  left_b_mb_g += mu;
+	  left_b_mb_d += (2+mu)*(1-var.u[index_u_tlt]);
 	}
 	if (mt.eps){
 	  left_b_mb_g += var.eps[t];
@@ -84,8 +84,8 @@ branching_constraints::branching_constraints(GRBModel& md, variables var, model_
 	    left_b_mb_d += (1+p.mu_max)*(1-var.z[i*p.L+t]);
 	  }
 	  else{
-	    left_b_mb_g += p.mu;
-	    left_b_mb_d += (2+p.mu)*(1-var.z[i*p.L+t]);
+	    left_b_mb_g += mu;
+	    left_b_mb_d += (2+mu)*(1-var.z[i*p.L+t]);
 	  }
 	  if (mt.eps){
 	    left_b_mb_g += var.eps[g];

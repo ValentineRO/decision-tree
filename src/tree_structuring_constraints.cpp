@@ -118,10 +118,8 @@ tree_structuring_constraints::tree_structuring_constraints(GRBModel& md, variabl
     for (int t = 0; t < p.N; t++) { // -d_t <= b_t <= d_t
         constraint_name = "bt_LEQ_dt_t=" + to_string(t);
         md.addConstr(var.b[t], GRB_LESS_EQUAL, var.d[t], constraint_name);
-        constraint_name = "bt_GEQ_0_t=" + to_string(t);
-	md.addConstr(var.b[t], GRB_GREATER_EQUAL, 0, constraint_name);
-	//constraint_name = "bt_GEQ_-dt_t=" + to_string(t);
-        //md.addConstr(var.b[t], GRB_GREATER_EQUAL, -var.d[t], constraint_name);
+	constraint_name = "bt_GEQ_-dt_t=" + to_string(t);
+        md.addConstr(var.b[t], GRB_GREATER_EQUAL, -var.d[t], constraint_name);
     }
   }
 

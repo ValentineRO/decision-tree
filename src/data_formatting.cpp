@@ -7,12 +7,22 @@ void dataset::compute_L_hat(){
     count[k] = 0;
   }
   for (int i=0; i<I; i++){
-    count[Y[i]] += 1;
+    if (weightedPoints){
+      count[Y[i]] += weights[i];
+    }
+    else{
+      count[Y[i]] += 1;
+    }
     if (count[Y[i]] > count[m]){
       m = Y[i];
     }
   }
-  L_h = I - count[m];  
+  if (weightedPoints){
+    L_h = initialI - count[m];
+  }
+  else{
+    L_h = I - count[m];  
+  }
 }
 
 dataset::dataset(){
@@ -21,7 +31,7 @@ dataset::dataset(){
   J = 0;
   K = 0;
 
-  weightedPoints = 0;
+  weightedPoints = false;
 }
 
 dataset::dataset(int I_, int J_, int K_) {
@@ -31,7 +41,7 @@ dataset::dataset(int I_, int J_, int K_) {
   X = new double[I*J];
   Y = new int[I];
 
-  weightedPoints = 0;
+  weightedPoints = false;
 }
 
 dataset::dataset(string namefile) {
@@ -58,9 +68,8 @@ dataset::dataset(string namefile) {
   }
   file.close();
   compute_mu();
+  weightedPoints = false;
   compute_L_hat();
-
-  weightedPoints = 0;
 }
 
 void dataset::compute_mu(){
@@ -78,9 +87,11 @@ void dataset::compute_mu(){
 	}
       }
     }
-    mu_min = min(mu_min,mu_vect[j]);
+    mu_min = min(mu_min, mu_vect[j]);
     mu_max = max(mu_max, mu_vect[j]);
   }
+
+  mu_min = max(mu_min, mu); // we dont want it to be smaller than the globally defined precision
 }
 
 void dataset::computeDists(){
@@ -96,6 +107,14 @@ void dataset::computeDists(){
       dists[i1*I+i2] = d;
       dists[i2*I+i1] = d;
     }
+  }
+
+  repOfLabels = new int[K];
+  for (int k=0; k<K; k++){
+    repOfLabels[k] = 0;
+  }
+  for (int i=0; i<I; i++){
+    repOfLabels[Y[i]] += 1;
   }
 }
 

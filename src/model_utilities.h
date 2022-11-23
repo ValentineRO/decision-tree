@@ -4,19 +4,6 @@
 #include "gurobi_c++.h"
 using namespace std;
 
-class binary_variable_def {
-public:
-    double* lb;
-    double* ub;
-    double* coef;
-    char* type;
-    string* names;
-    int count;
-
-    binary_variable_def();
-    binary_variable_def(string name, int nb_var, double UB=1.0);
-};
-
 enum baseModel {
   F,
   OCT,
@@ -50,11 +37,28 @@ class parameters{
 
   int Nmin,C;
 
-  double alph,mu,mu_min,mu_max;
+  double alph,mu_min,mu_max;
   double* mu_vect;
 
   parameters(){};
-  parameters(int depth, dataset &dt, double alp, double param_mu=0, int param_C = -1, bool have_Lhat=true, int param_Nmin = 0);
+  parameters(int depth, dataset &dt, double alp, int param_C = -1, bool have_Lhat=true, int param_Nmin = 0);
+
+  parameters parameters_copy();
+  void update(dataset &dt);
+};
+
+
+class variable_def {
+public:
+    double* lb;
+    double* ub;
+    double* coef;
+    char* type;
+    string* names;
+    int count;
+
+    variable_def();
+    variable_def(string name, int nb_var, bool isBinary, double LB=0.0, double UB=1.0);
 };
 
 class variables {

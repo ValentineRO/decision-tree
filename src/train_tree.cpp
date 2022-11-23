@@ -11,7 +11,7 @@ string model_name(baseModel bm, bool univ){
   return s;
 }
 
-training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, double mu){
+training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin){
 
   training_results tr = training_results();
 
@@ -38,7 +38,7 @@ training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, d
       cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
       freopen("gurobi_text.txt", "a", stdout);
       GRBEnv env = GRBEnv();
-      parameters p = parameters(D,dt_train,0,mu,C,false,Nmin);
+      parameters p = parameters(D,dt_train,0,C,false,Nmin);
 
       string CARTnamefile;
       if (univ){
@@ -91,7 +91,7 @@ training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, d
   return tr;
 }
 
-training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, double mu){
+training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin){
   
   training_results tr = training_results();
 
@@ -122,7 +122,7 @@ training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt
       cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
       freopen("gurobi_text.txt", "a", stdout);
       GRBEnv env = GRBEnv();
-      parameters p = parameters(D,dt_train,1.0/(2*C),mu,C,false,Nmin);
+      parameters p = parameters(D,dt_train,1.0/(2*C),C,false,Nmin);
 
       string CARTnamefile;
       

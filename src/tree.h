@@ -17,7 +17,7 @@ public:
     double* b;
     double* eps;
     // attribution des classes aux feuilles
-    int* c; // les classes seront entre 1 et K
+    int* c; // les classes seront entre 0 et K-1
 
     // fonctions de création d'un arbre
     Tree();
@@ -27,6 +27,7 @@ public:
     // fonctions utilitaire pour la construction d'un arbre
     void get_tree_structure();
 
+    void correctSplitFunctions();  // correcting split functions when coefficent are too small
     // fonction permettant de "remplir" les coefficients d'un arbre défini par Tree(int D_, int J_, int K_)
     void post_processing_b(dataset& dt, bool missClassifCounts=false, float rho=0.5); // remplir les valeurs de a, b etc avec le post-traitement sur b
     void post_processing_a_b(dataset& dt, bool missClassifCounts=false); // remplir les valeurs de a, b etc avec le post-traitement sur a et b
@@ -43,12 +44,11 @@ public:
     // fonction permettant de prédire la classe de données
     int predict_class(double x[]);
     void predict_classes(dataset& dt,int predictions[]);
-    void predict_classes(dataset& dt,int predictions[], double mu, double* vect_mu ={}); // si univ mu = 0, vect_mu = le vecteur, si multiv mu > 0
+
     int prediction_errors(dataset& dt);
     void data_points_per_leaves(dataset& dt, int repartition[]); // repartition[t*K+k] is the number of data point of class k in node t
     void data_points_in_last_split(dataset& dt, vector<int> points_in_node[]);
-    void predictLeaves(dataset& dt, int* leaves);
-    void predict_leaves(dataset& dt, int* leaves, double mu = -1.0, double* vect_mu ={}); // for OCT warm-start: leaves \in [0, L[
+    void predict_leaves(dataset& dt, int leaves[]);
     void predict_paths(dataset& dt, vector<int> paths[]); // for F warm-start
 
     // fonction permettant d'écrire ou lire un arbre avec des fichiers .txt

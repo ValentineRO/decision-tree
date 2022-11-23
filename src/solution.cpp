@@ -12,7 +12,6 @@ solution::solution(Tree T_, double o, int et, int nb, float t, double g, int n, 
 }
 
 bool dominating_trees::add_tree(optimal_tree& opt){
-
   if (nb_sol == 0){
     trees[0] = opt;
     alph[0] = 0.0;

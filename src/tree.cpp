@@ -20,6 +20,10 @@ Tree::Tree(int D_, int J_, int K_){
     b = new double[N];
     eps = new double[N];
 
+    for (int t=0; t<N; t++){
+      eps[t] = 0;
+    }
+
     c = new int[L+N];
 }
 
@@ -85,6 +89,26 @@ void Tree::get_tree_structure(){
   }
 }
 
+void Tree::correctSplitFunctions(){
+  for (int t=0; t<N; t++){
+    if (c[t] == -1){ // if there really is a split (otherwise we are going to divide by zero
+      double sum_a = 0;
+      for (int j=0; j<J; j++){
+	sum_a += abs(a[t*J+j]);
+      }
+      if (abs(b[t]) > sum_a){
+	cout << "abs(b) > sum_(abs(a)): this is not supposed to happen" << endl;
+      }
+      if (greaterThan(sum_a,0)){
+	for (int j=0; j<J; j++){
+	  a[t*J+j] /= sum_a;
+	}
+	b[t] /= sum_a;
+      }
+    }
+  }
+}
+
 void Tree::post_processing_b(dataset& dt, bool missClassifCounts, float rho){
   int* pred = new int[dt.I];
   predict_classes(dt,pred);
@@ -112,7 +136,7 @@ void Tree::post_processing_b(dataset& dt, bool missClassifCounts, float rho){
 	for (int j=0; j<J;j++){
 	  sum += dt.X[i*J+j]*a[node*J+j];
 	}
-	if (sum<b[node]){
+	if (lessThan(sum,b[node])){
 	  b_min[node] = max(b_min[node],sum);
 	  node = 2*node + 1;
 	}
@@ -152,7 +176,7 @@ void Tree::compute_ILIR(vector<int>* I_L, vector<int>* I_R, dataset& dt,  bool m
 	for (int j=0; j<J;j++){
 	  sum += dt.X[i*J+j]*a[node*J+j];
 	}
-	if (sum<b[node]){
+	if (lessThan(sum,b[node])){
 	  I_L[node].push_back(i); 
 	  node = 2*node+1;
 	}
@@ -263,6 +287,12 @@ void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
       }
       GRBLinExpr expr = e_min;
       m.setObjective(expr,GRB_MAXIMIZE);
+
+      if (setPrecision){
+	m.set(GRB_DoubleParam_IntFeasTol, GLOBAL_PRECISION); // val par def : 10-5, on passe à 10-6
+	m.set(GRB_DoubleParam_FeasibilityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+	m.set(GRB_DoubleParam_OptimalityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+      }
       
       //m.write("model.lp");
       //freopen("post_pr.txt", "a", stdout);
@@ -453,6 +483,11 @@ bool Tree::changeSplit(int t, vector<int> points, int& misclassif, dataset& dt, 
   }
 
   md.setObjective(Lt[0] + Lt[1], GRB_MINIMIZE);
+  if (setPrecision){
+    md.set(GRB_DoubleParam_IntFeasTol, GLOBAL_PRECISION); // val par def : 10-5, on passe à 10-6
+    md.set(GRB_DoubleParam_FeasibilityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+    md.set(GRB_DoubleParam_OptimalityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+  }
   md.set("TimeLimit", to_string(60)); // just in case it takes too much time
   //freopen("reducingComplexity.txt", "a", stdout);
   md.optimize();
@@ -534,7 +569,7 @@ int Tree::predict_class(double x[]){
     for (int j=0; j<J;j++){
       sum += x[j]*a[(node-1)*J+j];
     }
-    if (sum<b[node-1]){node = 2*node;}
+    if (lessThan(sum,b[node-1])){node = 2*node;}
     else{node = node*2 +1;}
     
   }
@@ -552,77 +587,30 @@ void Tree::predict_classes(dataset& dt,int predictions[]){
       for (int j=0; j<J;j++){
 	sum += dt.X[i*J+j]*a[node*J+j];
       }
-      if (sum>=b[node]){
-	node = 2*node+2;
+      if (lessThan(sum,b[node])){
+	node = 2*node+1;
       }
       else{
-	node = node*2 +1;
+	node = 2*node+2;
       }
     }
     predictions[i] = c[node];
   }
 }
-
-void Tree::predict_classes(dataset& dt,int predictions[], double mu, double* mu_vect){
-  for (int i=0;i<dt.I;i++){
-    int node = 1;
-    bool is_out = false;
-    for (int d=0; d<D;d++){
-      if (c[node-1]>=0){
-	break;
-      }
-      double sum=0;
-      double mu_j=0;
-      for (int j=0; j<J;j++){
-	sum += dt.X[i*J+j]*a[(node-1)*J+j];
-	if (mu==0){
-	  mu_j += mu_vect[j]*a[(node-1)*J+j];
-	}
-      }
-      
-      if (mu > 0){
-	if (sum>=b[node-1]){
-	  node = 2*node+1;
-	}
-	else if (sum<=b[node-1]-mu){
-	  node = node*2;
-	}
-	else{
-	  is_out= true;
-	}
-      }
-      else if (mu==0){
-	if (sum>=b[node-1]){
-	  node = 2*node+1;
-	}
-	else if (sum<=b[node-1]-mu_j){
-	  node = node*2 ;
-	}
-	else{
-	  is_out= true;
-	}
-      }
-      else{
-	if (sum>=b[node-1]){node = 2*node+1;}
-	else{node = node*2 ;}
-      }
-    }
-    if (is_out){
-      predictions[i] = -1;
-    }
-    else{
-      predictions[i] = c[node-1];
-    }
-  }
-}
-
 int Tree::prediction_errors(dataset& dt){
   int* pred = new int[dt.I];
   predict_classes(dt,pred);
 
   int errors = 0;
   for (int i=0; i<dt.I; i++){
-    errors += (int)(dt.Y[i]!=pred[i]);
+    if (dt.Y[i]!=pred[i]){
+      if (dt.weightedPoints){
+	errors += dt.weights[i];
+      }
+      else{
+	errors += 1;	
+      }
+    }
   }
 
   return errors;
@@ -648,11 +636,11 @@ void Tree::data_points_per_leaves(dataset& dt, int repartition[]){
 	
       }
       
-      if (sum<b[node]){
+      if (lessThan(sum,b[node])){
 	node = 2*node+1;
       }
       else{
-	node = node*2 +2;
+	node = 2*node+2;
       }
       
     }
@@ -674,7 +662,7 @@ void Tree::data_points_in_last_split(dataset& dt, vector<int> points_in_leaf[]){
 	
       }
       
-      if (sum<b[node]){
+      if (lessThan(sum,b[node])){
 	node = 2*node+1;
       }
       else{
@@ -687,7 +675,7 @@ void Tree::data_points_in_last_split(dataset& dt, vector<int> points_in_leaf[]){
   
 }
 
-void Tree::predictLeaves(dataset& dt, int* leaves){
+void Tree::predict_leaves(dataset& dt, int leaves[]){
   for (int i=0;i<dt.I;i++){
     int node = 1;
     for (int d=0; d<D;d++){
@@ -699,53 +687,8 @@ void Tree::predictLeaves(dataset& dt, int* leaves){
 	sum += dt.X[i*J+j]*a[(node-1)*J+j];
 	
       }
-      if (sum<b[node-1]){node = 2*node;}
+      if (lessThan(sum,b[node-1])){node = 2*node;}
       else{node = node*2 +1;}
-    }
-    if (node-1<N){
-      leaves[i] = right_most_leaf[node-1]-N;
-    }
-    else{
-      leaves[i] = node-1-N;
-    }
-  }
-}
-
-void Tree::predict_leaves(dataset& dt, int* leaves, double mu, double* mu_vect){
-  for (int i=0;i<dt.I;i++){
-    int node = 1;
-    for (int d=0; d<D;d++){
-      if (c[node-1]>=0){
-	break;
-      }
-      double sum=0;
-      double mu_j=0;
-      for (int j=0; j<J;j++){
-	sum += dt.X[i*J+j]*a[(node-1)*J+j];
-	if (mu==0){
-	  mu_j += mu_vect[j]*a[(node-1)*J+j];
-	}
-      }
-      if (mu > 0){
-	if (sum<=b[node-1]-mu){
-	  node = 2*node;
-	}
-	else{
-	  node = node*2 +1;
-	}
-      }
-      else if (mu=0){
-	if (sum<=b[node-1]-mu_j){
-	  node = 2*node;
-	}
-	else{
-	  node = node*2 +1;
-	}
-      }
-      else{
-	if (sum<b[node-1]){node = 2*node;}
-	else{node = node*2 +1;}
-      }
     }
     if (node-1<N){
       leaves[i] = right_most_leaf[node-1]-N;
@@ -768,8 +711,8 @@ void Tree::predict_paths(dataset& dt, vector<int> paths[]){
       for (int j=0; j<J;j++){
 	sum += dt.X[i*J+j]*a[(node-1)*J+j];
       }
-      if (sum<b[node-1]){node = 2*node;}
-      else{node = node*2 +1;}
+      if (lessThan(sum,b[node-1])){node = 2*node;}
+      else{node = 2*node+1;}
       paths[i].push_back(node-1);
     }
   }

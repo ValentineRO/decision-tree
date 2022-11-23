@@ -1,5 +1,5 @@
 #pragma once
-#include "decontracting_algorithm.h"
+#include "iteratingOTP.h"
 #include "gurobi_c++.h"
 using namespace std;
 
@@ -27,6 +27,6 @@ class training_results{
   }
 };
 
-training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, double mu=0.0001);
+training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin);
 
-training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, double mu=0.0001);
+training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin);

@@ -152,7 +152,7 @@ void test(string dataset_name, int depth_max, int Nmin, float alph, double mu, f
     //dt.partitionning(dt_train, dt_test,0.2,"partition_"+to_string(p)+".txt");
     
     for (int d = 2; d <= depth_max; d++){
-      parameters param = parameters(d,dt_train,alph,mu,0,true,Nmin); // ici on à alpha > 0 et les contraint sum dt <= C , n'existent pas
+      parameters param = parameters(d,dt_train,alph,0,true,Nmin); // ici on à alpha > 0 et les contraint sum dt <= C , n'existent pas
 
       model_cpt = 0;
 
@@ -345,31 +345,70 @@ void learning_test(string dataset_name, int depth_max, double mu){
   results.write_csv("../results/"+dataset_name+"_DMAX"+to_string(depth_max) + "_learning_test.csv");
 }
  
-void testClust(string datasetName){
+void testClust(string datasetName, float time_l){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(datasetName);
 
   int nbPart = 5;
+  int nbClustering = 12;
+
+  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consistency","meanDist"};
+
+  info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
   
   for (int p=0; p<nbPart; p++){
+    cout << "################# Partition " << p << endl;
     dataset dt_train, dt_test, dt_validation;
     dt.readPartition(p,dt_train, dt_validation, dt_test);
+
+    dt_train.computeDists();
 
     int Nmin = (int)floor(0.05*dt_train.I);
 
     vector<clustering> clz;
+    vector<time_t> clzTimes;
     vector<string> clzNames;
+
     for (int gm=1; gm<10; gm++){
-      clz.push_back(greedyClustering(dt_train,gm/10));
+      time_t t1 = time (NULL);
+      clz.push_back(hierarchicalClustering(dt_train,(float)gm/10));
+      time_t t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
       clzNames.push_back("Greedy"+to_string(gm)+"0%");
     }
+    time_t t1 = time (NULL);
     clz.push_back(homogeneousClustering(dt_train, false));
+    time_t t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
     clzNames.push_back("AlgoLongBary");
+
+    t1 = time (NULL);
     clz.push_back(homogeneousClustering(dt_train, true));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
     clzNames.push_back("AlgoLongMedoid");
-    clz.push_back(weightedGreedyClustering(dt_train));
-    clzNames.push_back("BetterGreedy");
     
+
+    t1 = time (NULL);
+    clz.push_back(weightedGreedyClustering(dt_train));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("BetterGreedy");
+
+    for (int c=0; c<clz.size(); c++){
+      string line[8];
+      line[0] = to_string(p);
+      line[1] = clzNames[c];
+      line[2] = to_string(clzTimes[c]);
+      line[3] = to_string((float)clz[c].clusters.size()/dt_train.I);
+      line[4] = to_string(clz[c].computeHomogeneity(dt_train));
+      line[5] = to_string(clz[c].computeExclusion(dt_train));
+      line[6] = to_string(clz[c].computeConsistency(dt_train));
+      line[7] = to_string(clz[c].computeMeanDist(dt_train));
+
+      iM.write_line(p*nbClustering + c, line);
+    }
+
     for (int D=2; D<5; D++){
       int Cmin = D,
   	CmaxU = pow(2,D)-1,
@@ -380,10 +419,10 @@ void testClust(string datasetName){
 			model_type(baseModel::FOCT,false, false, true, false),
 			model_type(baseModel::FOCT,false, false, true, false)};
 
-      parameters paramz[4] = {parameters(D, dt_train, 1/(Cmin*2), 0.00001, Cmin, false, Nmin),
-			      parameters(D, dt_train, 1/(CmaxU*2), 0.00001, CmaxU, false, Nmin),
-			      parameters(D, dt_train, 1/(Cmin*2), 0.00001, Cmin, false, Nmin),
-			      parameters(D, dt_train, 1/(CmaxM*2), 0.00001, CmaxM, false, Nmin)};
+      parameters paramz[4] = {parameters(D, dt_train, (double)1/(Cmin+1), Cmin, false, Nmin),
+			      parameters(D, dt_train, (double)1/(CmaxU+1), CmaxU, false, Nmin),
+			      parameters(D, dt_train, (double)1/(Cmin+1), Cmin, false, Nmin),
+			      parameters(D, dt_train, (double)1/(CmaxM+1), CmaxM, false, Nmin)};
       for (int i=0; i<4; i++){
 	string typeOfSplit;
 	if (mtz[i].univ){
@@ -394,26 +433,114 @@ void testClust(string datasetName){
 	}
 	
 	for (int c=0; c<clz.size(); c++){
-	  string filename = "../resultsIteratingAlgo/" + dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
-	  solClust solC = decontractingAlgorithm(dt_train, clz[c], mtz[i], paramz[i]);
+	  cout << dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C) <<endl;
+	  string filename = "../resultsIteratingAlgo/" + dt.name + "/"+ dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+	  solClust solC = iteratingOTP(dt_train, clz[c], mtz[i], paramz[i],time_l);
+	  solC.addClusteringTime(clzTimes[c]);
 	  solC.errTr = solC.T.prediction_errors(dt_train);
 	  solC.errTst = solC.T.prediction_errors(dt_test);
 	  solC.write(filename);
 	}
-	string filename = "../resultsIteratingAlgo/" + dt.name + "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+	string filename = "../resultsIteratingAlgo/" + dt.name +"/"+ dt.name+ "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
 
 	GRBModel foct = GRBModel(env);
+	t1 = time (NULL);
 	build_model FOCT = build_model(foct,dt_train,mtz[i],paramz[i]);
-	solution sol = FOCT.solve(foct,3600);
+	solution sol = FOCT.solve(foct,time_l);
+	t2 = time (NULL);
      
-
 	fstream file;
-	file.open(filename,ios::out);
-	file << sol.time <<endl;
+	file.open(filename,ios::out | std::ofstream::trunc);
+	file << t2-t1 <<endl;
 	file << sol.T.prediction_errors(dt_train) << endl;
 	file << sol.T.prediction_errors(dt_test) << endl;
 	file.close();
       }
     }
   }
+  iM.write_csv("../resultsIteratingAlgo/"+datasetName+"/clusteringStats.csv");
+}
+
+void clustStats(string datasetName){
+  dataset dt = dataset(datasetName);
+
+  int nbPart = 5;
+  int nbClustering = 12;
+  //int nbClustering = 39;
+
+  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consitency","meanDist"};
+
+  info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
+  
+  for (int p=0; p<nbPart; p++){
+    dataset dt_train, dt_test, dt_validation;
+    dt.readPartition(p,dt_train, dt_validation, dt_test);
+
+    dt_train.computeDists();
+
+    int Nmin = (int)floor(0.05*dt_train.I);
+
+    vector<clustering> clz;
+    vector<time_t> clzTimes;
+    vector<string> clzNames;
+
+    for (int gm=1; gm<10; gm++){
+      time_t t1 = time (NULL);
+      clz.push_back(hierarchicalClustering(dt_train,(float)gm/10));
+      time_t t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("hierarchLab"+to_string(gm)+"0%");
+
+      /*
+      t1 = time (NULL);
+      clz.push_back(hierarchicalClustering(dt_train,(float)gm/10, false));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("hierarchNoLab"+to_string(gm)+"0%");
+
+      t1 = time (NULL);
+      clz.push_back(kMeansClustering(dt_train,(float)gm/10));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("kMeansLab"+to_string(gm)+"0%");
+
+      t1 = time (NULL);
+      clz.push_back(kMeansClustering(dt_train,(float)gm/10, false));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("kMeansNoLab"+to_string(gm)+"0%");*/
+    }
+    time_t t1 = time (NULL);
+    clz.push_back(homogeneousClustering(dt_train, false));
+    time_t t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("AlgoLongBary");
+
+    t1 = time (NULL);
+    clz.push_back(homogeneousClustering(dt_train, true));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("AlgoLongMedoid");
+
+    t1 = time (NULL);
+    clz.push_back(weightedGreedyClustering(dt_train));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("BetterGreedy");
+
+    for (int c=0; c<clz.size(); c++){
+      string line[8];
+      line[0] = to_string(p);
+      line[1] = clzNames[c];
+      line[2] = to_string(clzTimes[c]);
+      line[3] = to_string((float)clz[c].clusters.size()/dt_train.I);
+      line[4] = to_string(clz[c].computeHomogeneity(dt_train));
+      line[5] = to_string(clz[c].computeExclusion(dt_train));
+      line[6] = to_string(clz[c].computeConsistency(dt_train));
+      line[7] = to_string(clz[c].computeMeanDist(dt_train));
+
+      iM.write_line(p*nbClustering + c, line);
+    }
+  }
+  iM.write_csv("../resultsIteratingAlgo/"+datasetName+"_clusteringStats.csv");
 }

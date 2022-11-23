@@ -46,5 +46,5 @@ class learning_test_matrix : public info_matrix{
 
 void test(string dataset, int depth, int Nmin, float alph, double mu = 0.0001, float time_l=3600.0);
 void learning_test(string dataset, int depth_max,double mu = 0.0001);
-void testClust(string datasetName);
-	      
+void testClust(string datasetName, float time_l);
+void clustStats(string datasetName);

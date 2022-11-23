@@ -4,6 +4,7 @@
 #include <vector>
 #include <math.h>
 #include <algorithm>
+#include "utilities.h"
 using namespace std;
 
 class dataset{
@@ -19,6 +20,7 @@ public :
   double* mu_vect;
     
   double* dists;
+  int* repOfLabels;
   int* weights;
   bool weightedPoints;
   int initialI;
@@ -29,7 +31,7 @@ public :
     
   void compute_L_hat();
   void compute_mu();
-  void computeDists();
+  void computeDists(); // also compute the repartition of labels
 
   void partitionning(dataset& train, dataset& test, float p=0.2);
   void partitionning2(dataset& train, dataset& validation, dataset& test);
