@@ -603,11 +603,31 @@ void build_model::get_z(int z[]){
   */
 }
 
-solution build_model::solve(GRBModel& md, double time_limit){
-  md.set("TimeLimit", to_string(time_limit));
+solution build_model::solve(GRBModel& md, double timeL, vector<double> time_limit){
+  vector<double> timeList;
   
+  if (time_limit.size() == 0){
+    timeList.push_back(timeL);
+  }
+  else{
+    timeList = time_limit;
+  }
+
   freopen("gurobi_text.txt", "a", stdout);
-  md.optimize();
+  vector<double> obj_evo;
+  double gap;
+  for (int tl=0; tl<timeList.size(); tl++){
+    md.set("TimeLimit", to_string(timeList[tl]));
+    md.optimize();
+
+    gap = md.get(GRB_DoubleAttr_MIPGap);
+    if (gap < 0.00001){
+      break;
+    }
+    else{
+      obj_evo.push_back(md.get(GRB_DoubleAttr_ObjVal));
+    }
+  }
   freopen("/dev/tty", "w", stdout);
   remove("gurobi_text.txt");
 
@@ -625,10 +645,7 @@ solution build_model::solve(GRBModel& md, double time_limit){
   Tree T = Tree(param.D,param.J,param.K);
   buildTree(T);
 
-  //double gap = 0.0;
-  double gap = md.get(GRB_DoubleAttr_MIPGap); // ya un bug "Unable to retrieve attribute 'MIPGap'" donc j'enlève momentanément
-
-  return solution(T,obj_val,err_tr,nb_br,md.get(GRB_DoubleAttr_Runtime),md.get(GRB_DoubleAttr_MIPGap),(int)md.get(GRB_DoubleAttr_NodeCount),rr);   
+  return solution(T,obj_val,obj_evo,err_tr,nb_br,md.get(GRB_DoubleAttr_Runtime),md.get(GRB_DoubleAttr_MIPGap),(int)md.get(GRB_DoubleAttr_NodeCount),rr);   
 }
 
 double build_model::read_root_rel_objvalue(){

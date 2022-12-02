@@ -1,8 +1,12 @@
 #include "solution.h"
 
-solution::solution(Tree T_, double o, int et, int nb, float t, double g, int n, double r){
+solution::solution(Tree T_, double o, vector<double> oEvo, int et, int nb, float t, double g, int n, double r){
     T =T_;
     obj = o;
+    objEvo = {};
+    for (int i=0; i<oEvo.size(); i++){
+      objEvo.push_back(oEvo[i]);
+    }
     error_train = et;
     nb_br = nb;
     time = t;

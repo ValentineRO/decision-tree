@@ -259,7 +259,7 @@ solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters
     pm.update(currentDt);
     GRBModel md = GRBModel(env);
     build_model model = build_model(md,currentDt,modelt,pm);
-    solution sol = model.solve(md,timeL);
+    solution sol = model.solve(md,timeL-solC.totTime);
     
     time_t t2 = time (NULL);
 
@@ -272,11 +272,14 @@ solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters
     solC.centeringTime.push_back(t3-t2);
     solC.totTime += t3 - t1;
     solC.nbIter += 1;
-    solC.isOpti.push_back(sol.time < timeL);
+    solC.isOpti.push_back(sol.time < timeL-solC.totTime);
     solC.nbCl.push_back(clust.clusters.size());
     solC.errCl.push_back(sol.T.prediction_errors(currentDt));
     solC.errDt.push_back(sol.T.prediction_errors(dt));
-    
+
+    if (solC.totTime > timeL){
+      break;
+    }
   }
   solC.nbClFinal = clust.clusters.size();
 

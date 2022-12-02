@@ -24,11 +24,11 @@ class statistical_test_matrix : public info_matrix{
  public :
   int nb_models, nb_part, nb_depths;
   string dataset;
-  int time_l, Nmin;
+  int timeL, Nmin;
   float alpha;
 
   statistical_test_matrix(){}
-  statistical_test_matrix(int nb_mod, int nb_p, int nb_dep, string dts, int Nm, float alph, float tl=3600.0);
+  statistical_test_matrix(int nb_mod, int nb_p, int nb_dep, string dts, int Nm, float alph, vector<double> tl);
   void write_line(int p, int d, int model_cpt, string model, solution sol, string error_test, string error_test_pp);
   void write_result_partition(int p);
 };
@@ -44,7 +44,7 @@ class learning_test_matrix : public info_matrix{
   void write_result_partition(int p);
 };
 
-void test(string dataset, int depth, int Nmin, float alph, double mu = 0.0001, float time_l=3600.0);
-void learning_test(string dataset, int depth_max,double mu = 0.0001);
+void test(string dataset);
+void learning_test(string dataset, int depth_max);
 void testClust(string datasetName, float time_l);
 void clustStats(string datasetName);

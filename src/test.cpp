@@ -38,11 +38,11 @@ void info_matrix::write_csv(string namefile, int beg_line, int end_l){
 }
 
 
-statistical_test_matrix::statistical_test_matrix(int nb_mod, int nb_p, int nb_dep, string dts, int Nm, float alph, float tl){
-  nb_columns = 16;
-  columns_name = new string[16];
-  string cl_n[16] = { "Dataset", "Partition", "Model", "Time_Limit", "Profondeur", "Alpha", "Nmin", "Objective", "Error train", "Number of branchings", "Time", "Gap", "Nodes", "Root Relaxation", "Error_test", "Error_test_Post_Pr"};
-  for (int c = 0; c<16; c++){
+statistical_test_matrix::statistical_test_matrix(int nb_mod, int nb_p, int nb_dep, string dts, int Nm, float alph, vector<double> tl){
+  nb_columns = 22;
+  columns_name = new string[22];
+  string cl_n[22] = { "Dataset", "Partition", "Model", "Time_Limit", "Profondeur", "Alpha", "Nmin", "Objective", "Error train", "Number of branchings", "Time", "Gap", "Nodes", "Root Relaxation", "Error_test", "Error_test_Post_Pr","Objective1min","Objective2min","Objective5min","Objective10min","Objective20min","Objective30min"};
+  for (int c = 0; c<22; c++){
     columns_name[c] = cl_n[c];
   }
   
@@ -54,7 +54,7 @@ statistical_test_matrix::statistical_test_matrix(int nb_mod, int nb_p, int nb_de
   dataset = dts;
   Nmin = Nm;
   alpha = alph;
-  time_l = tl;
+  timeL = tl[5]; // ya que 6 temps différents
 
   content = new string[nb_columns*nb_lines];
 }
@@ -65,7 +65,7 @@ void statistical_test_matrix::write_line(int p, int d, int model_cpt, string mod
   content[cpt + 0] = dataset;
   content[cpt + 1] = to_string(p);
   content[cpt + 2] = model;
-  content[cpt + 3] = to_string(time_l);
+  content[cpt + 3] = to_string(timeL);
   content[cpt + 4] = to_string(d);
   content[cpt + 5] = to_string(alpha);
   content[cpt + 6] = to_string(Nmin);
@@ -79,12 +79,19 @@ void statistical_test_matrix::write_line(int p, int d, int model_cpt, string mod
   content[cpt + 13] = to_string(sol.root_rel);
   content[cpt + 14] = error_test;
   content[cpt + 15] = error_test_pp;
+
+  for (int tl=0; tl<sol.objEvo.size(); tl++){
+    content[cpt + 16 + tl] = sol.objEvo[tl];
+  }
+  for (int tl=sol.objEvo.size(); tl<6; tl++){
+    content[cpt + 16 + tl] = content[cpt + 16 + tl - 1];
+  }
 }
 
 void statistical_test_matrix::write_result_partition(int p){
   int beg_line = p*nb_depths*nb_models,
     end_line = (p+1)*nb_depths*nb_models;
-  string namefile = "../results/"+dataset+"_tl"+to_string(time_l)+"_alp"+to_string(alpha) + "_part" + to_string(p) + "_test.csv";
+  string namefile = "../results/"+dataset+"_tl"+to_string(timeL)+"_alp"+to_string(alpha) + "_part" + to_string(p) + "_test.csv";
   write_csv(namefile, beg_line, end_line);
 }
 
@@ -133,12 +140,18 @@ void learning_test_matrix::write_result_partition(int p){
   write_csv(namefile, beg_line, end_line);
 }
 
-void test(string dataset_name, int depth_max, int Nmin, float alph, double mu, float time_l){
+void test(string dataset_name){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(dataset_name);
+
+  int depth_max = 4;
+  int Nmin = 0;
+  float alph = 0.1;
+
+  vector<double> time_l = {60,60,180,300,600,600};  // ca veut dire au bout de {60,120,300,600,1200,1800} secondes
   
   int nb_models = 10,
-    nb_part = 10,
+    nb_part = 5,
     nb_depths = depth_max - 1;
 
   statistical_test_matrix results = statistical_test_matrix(nb_models, nb_part, nb_depths, dataset_name, Nmin, alph, time_l);
@@ -146,110 +159,121 @@ void test(string dataset_name, int depth_max, int Nmin, float alph, double mu, f
   solution sol;
   int model_cpt;
 
+  char* date;
+
   for (int p = 0; p<nb_part; p++){
-    dataset dt_train, dt_test;
-    dt.partitionning(dt_train, dt_test);
-    //dt.partitionning(dt_train, dt_test,0.2,"partition_"+to_string(p)+".txt");
+    dataset dt_train, dt_validation, dt_test;
+    dt.readPartition(p,dt_train, dt_validation, dt_test);
     
     for (int d = 2; d <= depth_max; d++){
-      parameters param = parameters(d,dt_train,alph,0,true,Nmin); // ici on à alpha > 0 et les contraint sum dt <= C , n'existent pas
+      parameters param = parameters(d,dt_train,alph,-1,true,Nmin); // ici on à alpha > 0 et les contraint sum dt <= C , n'existent pas
 
       model_cpt = 0;
 
-      cout << "OCT\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " OCT - start : "<< date<<endl;
       GRBModel oct = GRBModel(env);
       build_model OCT = build_model(oct,dt_train,model_type(baseModel::OCT,true,false,false,false),param);
-      sol = OCT.solve(oct,time_l);
+      sol = OCT.solve(oct,0.0,time_l);
       int et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_b(dt_train, true);
       int et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"OCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "QOCT\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " QOCT - start : "<< date<<endl;
       GRBModel qoct = GRBModel(env);
       build_model QOCT = build_model(qoct,dt_train,model_type(baseModel::QOCT,true,false,false,false),param);
-      sol = QOCT.solve(qoct,time_l);
+      sol = QOCT.solve(qoct,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"QOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "FOCT\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " FOCT - start : "<< date<<endl;
       GRBModel foct = GRBModel(env);
       build_model FOCT = build_model(foct,dt_train,model_type(baseModel::FOCT,true,false,false,false),param);
-      sol = FOCT.solve(foct,time_l);
+      sol = FOCT.solve(foct,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"FOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "GOCT\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " GOCT - start : "<< date<<endl;
       GRBModel goct = GRBModel(env);
       build_model GOCT = build_model(goct,dt_train,model_type(baseModel::GOCT,true,false,false,false),param);
-      sol = GOCT.solve(goct,time_l);
+      sol = GOCT.solve(goct,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"GOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "F\n";
+      date = ctime(& now);
+      cout << "Partition " << p << " F - start : "<< date<<endl;
       GRBModel f = GRBModel(env);
       build_model F = build_model(f,dt_train,model_type(baseModel::F,true,false,false,false),param);
-      sol = F.solve(f,time_l);
+      sol = F.solve(f,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_b(dt_train, false);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"F",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "OCTH\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " OCTH - start : "<< date<<endl;
       GRBModel octh = GRBModel(env);
       build_model OCTH = build_model(octh,dt_train,model_type(baseModel::OCT,false,false,false,false),param);
-      sol = OCTH.solve(octh,time_l);
+      sol = OCTH.solve(octh,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_a_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"OCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "QOCTH\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " QOCTH - start : "<< date<<endl;
       GRBModel qocth = GRBModel(env);
       build_model QOCTH = build_model(qocth,dt_train,model_type(baseModel::QOCT,false,false,false,false),param);
-      sol = QOCTH.solve(qocth,time_l);
+      sol = QOCTH.solve(qocth,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_a_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"QOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "FOCTH\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " FOCTH - start : "<< date<<endl;
       GRBModel focth = GRBModel(env);
       build_model FOCTH = build_model(focth,dt_train,model_type(baseModel::FOCT,false,false,false,false),param);
-      sol = FOCTH.solve(focth,time_l);
+      sol = FOCTH.solve(focth,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_a_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"FOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "GOCTH\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " GOCTH - start : "<< date<<endl;
       GRBModel gocth = GRBModel(env);
       build_model GOCTH = build_model(gocth,dt_train,model_type(baseModel::GOCT,false,false,false,false),param);
-      sol = GOCTH.solve(gocth,time_l);
+      sol = GOCTH.solve(gocth,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_a_b(dt_train, true);
       et_pp = sol.T.prediction_errors(dt_test);
       results.write_line(p,d,model_cpt,"GOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
-      cout << "FH\n" ;
+      date = ctime(& now);
+      cout << "Partition " << p << " FH - start : "<< date<<endl;
       GRBModel fh = GRBModel(env);
       build_model FH = build_model(fh,dt_train,model_type(baseModel::F,false,false,false,false),param);
-      sol = FH.solve(fh,time_l);
+      sol = FH.solve(fh,0.0,time_l);
       et = sol.T.prediction_errors(dt_test);
       sol.T.post_processing_a_b(dt_train, false);
       et_pp = sol.T.prediction_errors(dt_test);
@@ -259,14 +283,12 @@ void test(string dataset_name, int depth_max, int Nmin, float alph, double mu, f
     }
     results.write_result_partition(p);
   }
-  results.write_csv("../results/"+dataset_name+"_tl"+to_string(time_l)+"_alp"+to_string(alph) + "_test.csv");
+  results.write_csv("../results/"+dataset_name+"_tl"+to_string(results.timeL)+"_alp"+to_string(alph) + "_test.csv");
 }
 
-void learning_test(string dataset_name, int depth_max, double mu){
+void learning_test(string dataset_name, int depth_max){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(dataset_name);
-
-  int Nmin = (int)floor(0.05*dt.I);
   
   int nb_models = 6,
     nb_part = 5;
