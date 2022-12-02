@@ -159,6 +159,7 @@ void test(string dataset_name){
   solution sol;
   int model_cpt;
 
+  time_t now;
   char* date;
 
   for (int p = 0; p<nb_part; p++){
