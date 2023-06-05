@@ -1,5 +1,5 @@
 #pragma once
-#include "tree.h"
+#include "CART.h"
 #include <utility>
 // #include <vector>
 using namespace std;
@@ -8,7 +8,6 @@ class solution{
 public :
     Tree T;
     double obj;
-    vector<double> objEvo;
     int error_train;
     int nb_br;
     float time;
@@ -16,8 +15,11 @@ public :
     int nodes;
     double root_rel;
 
-    solution() {}
-    solution(Tree T_, double o, vector<double> oEvo, int et, int nb, float t, double g, int n, double r);
+    solution() {
+      T = Tree();
+      time = 0;
+    }
+    solution(Tree T_, double o, int et, int nb, float t, double g, int n, double r);
 };
 
 class optimal_tree{

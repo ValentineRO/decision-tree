@@ -35,16 +35,21 @@ public:
 
     // fonction permettant d'agrandir un arbre
     Tree bigger_tree(int new_D);
+    
+    // fonction qui pousse b à son max
+    Tree adjustTree(dataset& dt);
 
     // fonctions qui permettent d'enlever un coeff à l'arbre
     Tree reduceComplexity(dataset& dt, int Nmin=0, double mu = 0.0001); // en resolvant un mini-programme
     bool changeSplit(int t, vector<int> points, int& misclassif, dataset& dt, int Nmin=0, double mu=0.0001);
     Tree removeSplit(dataset& dt); // en enlevant un split
 
+    int countComplexity();
+    
     // fonction permettant de prédire la classe de données
     int predict_class(double x[]);
+    int predict_leaf(double x[]);
     void predict_classes(dataset& dt,int predictions[]);
-
     int prediction_errors(dataset& dt);
     void data_points_per_leaves(dataset& dt, int repartition[]); // repartition[t*K+k] is the number of data point of class k in node t
     void data_points_in_last_split(dataset& dt, vector<int> points_in_node[]);

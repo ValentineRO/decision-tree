@@ -9,11 +9,14 @@ EXEC=decision_tree
 
 all:$(EXEC)
 
-$(EXEC): main.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o tree.o data_formatting.o utilities.o
-	$(LD) main.cpp $(LDFLAGS)  -I$(GUROBIDIR) -o  $(EXEC) test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o tree.o data_formatting.o utilities.o -ldl -lpthread -L$(LIB64DIR) -llapack -lblas -lgfortran -lm -L$(GUROBILIBDIR) -lgurobi_g++5.2 -lgurobi91
+$(EXEC): main.o testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o
+	$(LD) main.cpp $(LDFLAGS)  -I$(GUROBIDIR) -o  $(EXEC) testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o -ldl -lpthread -L$(LIB64DIR) -llapack -lblas -lgfortran -lm -L$(GUROBILIBDIR) -lgurobi_g++5.2 -lgurobi91
 
 main.o : main.cpp test.h
 	g++ -c -g main.cpp -I$(GUROBIDIR)
+
+testv2.o : testv2.cpp testv2.h train_tree.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g testv2.cpp -I$(GUROBIDIR)
 
 test.o : test.cpp test.h train_tree.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g test.cpp -I$(GUROBIDIR)
@@ -51,8 +54,11 @@ counting_errors.o : counting_errors.cpp counting_errors.h $(GUROBIDIR)/gurobi_c+
 model_utilities.o : model_utilities.cpp model_utilities.h solution.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g model_utilities.cpp -I$(GUROBIDIR)
 
-solution.o: solution.cpp solution.h tree.h $(GUROBIDIR)/gurobi_c++.h
+solution.o: solution.cpp solution.h CART.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g solution.cpp -I$(GUROBIDIR)
+
+CART.o : CART.cpp CART.h tree.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g CART.cpp -I$(GUROBIDIR)
 
 tree.o: tree.cpp tree.h data_formatting.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g tree.cpp -I$(GUROBIDIR)

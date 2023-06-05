@@ -37,5 +37,7 @@ public :
   void partitionning2(dataset& train, dataset& validation, dataset& test);
 
   void readPartition(int partition_number, dataset& train, dataset& validation, dataset& test);
+
+  void writeDataset(string namefile);
 };
 

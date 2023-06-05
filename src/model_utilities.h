@@ -40,6 +40,8 @@ class parameters{
   double alph,mu_min,mu_max;
   double* mu_vect;
 
+  int MIPFocus;
+
   parameters(){};
   parameters(int depth, dataset &dt, double alp, int param_C = -1, bool have_Lhat=true, int param_Nmin = 0);
 

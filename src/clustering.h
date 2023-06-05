@@ -14,6 +14,7 @@ void move(vector<distCl>& ordDist, int index, double newVal); // finit et c'est 
 
 class clustering{
  public:
+  string name;
   int J; // dimension
   vector<cluster> clusters;
   map<int,int> clusterOf; // for any data point, we have the cluster it is in
@@ -28,6 +29,7 @@ class clustering{
   }
   clustering(dataset& dt);
   clustering(dataset& dt, vector<vector<int>> part);
+  clustering(dataset& dt, string namefile, string shortName);
 
   clustering clustering_copy();
   
@@ -47,7 +49,6 @@ class clustering{
   void write(string namefile);
 
   dataset createDt(dataset& initialDt, bool useMedoid=false);
-  
 };
 
 clustering hierarchicalClustering(dataset& dt, float p, bool useLabel=true);
@@ -56,4 +57,3 @@ clustering kMeansClustering(dataset& dt, float p, bool useLabel=true);
 clustering weightedGreedyClustering(dataset& dt);
 clustering homogeneousClustering(dataset& dt, bool useMedoids = false);
 clustering optimalClustering(dataset& dt, int maxCl=-1, float H=1);
-

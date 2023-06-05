@@ -5,26 +5,26 @@ using namespace std;
 
 class solClust{
  public:
-  Tree T;
+  vector<Tree> T;
   time_t totTime, clTime;
-  int nbIter, nbClInitial, nbClFinal, errTr, errTst;
+  int nbIter, nbClInitial, nbClFinal;
+  double pseudoGap;
   vector<time_t> solveTime, centeringTime;
-  vector<bool> isOpti;
-  vector<int> nbCl, errCl, errDt;
+  vector<double> gap;
+  vector<int> nbCl, obj, errCl, errDt;
   clustering finalCl;
 
   solClust(){
-    T = Tree();
+    T = {};
     totTime = 0;
     nbIter = 0;
-    errTr = 0;
-    errTst = 0;
     nbClInitial = 0;
     nbClFinal = 0;
     solveTime = {};
     centeringTime = {};
-    isOpti = {};
+    gap = {};
     nbCl = {};
+    obj = {};
     errCl = {};
     errDt = {};
   }
@@ -33,5 +33,10 @@ class solClust{
   void write(string filename);
 };
 
-bool isIntersecting(Tree T, clustering& cl, dataset& intialDt, dataset& currentDt, bool univ, bool updateCl);
+bool isIntersecting(Tree T, clustering& cl, dataset& intialDt, dataset& currentDt, bool univ, int Nmin = 0);
+solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL=3600);
+solClust iteratingCART(dataset& dt, clustering& cl, parameters p);
+/*
+void buildPR(GRBModel& md, dataset& dt, clustering& cl, model_type modelt, parameters p);
 solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, int timeL=3600);
+*/

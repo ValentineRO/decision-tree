@@ -8,14 +8,13 @@ void solClust::write(string filename){
   file << clTime << endl;
   file << nbClInitial <<endl;
   file << nbClFinal << endl;
-  file << errTr << endl;
-  file << errTst << endl;
+  file << pseudoGap << endl;
   file << nbIter << endl;
 
   for (int i=0; i<nbIter; i++){
     file << solveTime[i] << endl;
     file << centeringTime[i] << endl;
-    file << isOpti[i] << endl;
+    file << obj[i] << endl;
     file << nbCl[i] << endl;
     file << errCl[i] << endl;
     file << errDt[i] << endl;
@@ -24,7 +23,349 @@ void solClust::write(string filename){
   file.close();
 }
 
-bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool univ, bool updateCl){
+bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool univ, int Nmin){
+  vector<int>* IL = new vector<int>[T.N];
+  vector<int>* IR = new vector<int>[T.N];
+  T.compute_ILIR(IL, IR, currentDt, true);
+  
+  bool B = false;
+  GRBEnv env = GRBEnv();
+  for (int t=0; t<T.N; t++){
+    if (T.c[t] == -1 and IL[t].size()!=0 and IR[t].size()!=0){
+      // calcul du nombre de points au noeud t (c'est oké car IL, IR et cl sont updatés)
+      int nbPoints = 0;
+      for (int i=0; i<IL[t].size(); i++){
+	//cout << "a gauche " << IL[t][i] << endl;
+	nbPoints += cl.clusters[IL[t][i]].pts.size();
+      }
+      for (int i=0; i<IR[t].size(); i++){
+	//cout << "a droite " << IR[t][i] << endl;
+	nbPoints += cl.clusters[IR[t][i]].pts.size();
+      }
+
+      GRBModel m = GRBModel(env);
+
+      GRBVar* psi_var;
+      psi_var = m.addVars(IL[t].size()+IR[t].size(), GRB_BINARY);
+      GRBVar* z_var;
+      z_var = m.addVars(nbPoints*2, GRB_BINARY);
+      GRBVar ll_var;
+      ll_var = m.addVar(0.0, 1.0, 0.0, GRB_BINARY, "ll");
+      GRBVar lr_var;
+      lr_var = m.addVar(0.0, 1.0, 0.0, GRB_BINARY, "lr");
+
+      GRBVar b1_var, b2_var;
+      GRBVar* a_var;
+      GRBVar* ah_var;
+      GRBVar* s_var;
+      if (univ){
+	b1_var = m.addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS, "b1");
+	b2_var = m.addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS, "b2");
+	m.addConstr(b1_var,GRB_LESS_EQUAL,b2_var-mu*ll_var,"b1<=b2-d*mu");
+
+	double* lb_a = new double[initialDt.J];
+	double* ub_a = new double[initialDt.J];
+	double* coef_a = new double[initialDt.J];
+	char* type_a = new char[initialDt.J];
+	string* name_a = new string[initialDt.J];
+	for (int j=0; j<initialDt.J; j++){
+	  lb_a[j] = 0.0;
+	  ub_a[j] = 1.0;
+	  coef_a[j] = 0.0;
+	  type_a[j] = GRB_BINARY;
+	  name_a[j] = "a" + to_string(j);
+	}
+	a_var = m.addVars(lb_a,ub_a,coef_a,type_a,name_a,initialDt.J);
+
+	GRBLinExpr sum_aj = 0;
+	for (int j=0; j<T.J; j++){
+	  sum_aj += a_var[j];
+	}
+	m.addConstr(sum_aj,GRB_EQUAL,ll_var,"sum_a=d");
+      }
+      else{
+	 b1_var = m.addVar(-1.0, 1.0, 0.0, GRB_CONTINUOUS, "b1");
+	 b2_var = m.addVar(-1.0, 1.0, 0.0, GRB_CONTINUOUS, "b2");
+	 m.addConstr(b1_var,GRB_LESS_EQUAL,b2_var-mu*ll_var,"b1<=b2");
+
+	 double* lb_a = new double[initialDt.J];
+	 double* ub_a = new double[initialDt.J];
+	 double* coef_a = new double[initialDt.J];
+	 char* type_a = new char[initialDt.J];
+	 string* name_a = new string[initialDt.J];
+	 for (int j=0; j<initialDt.J; j++){
+	   lb_a[j] = -1.0;
+	   ub_a[j] = 1.0;
+	   coef_a[j] = 0.0;
+	   type_a[j] = GRB_CONTINUOUS;
+	   name_a[j] = "a" + to_string(j);
+	 }
+	 a_var = m.addVars(lb_a,ub_a,coef_a,type_a,name_a,initialDt.J);
+
+	 double* lb_ah = new double[initialDt.J];
+	 double* ub_ah = new double[initialDt.J];
+	 double* coef_ah = new double[initialDt.J];
+	 char* type_ah = new char[initialDt.J];
+	 string* name_ah = new string[initialDt.J];
+	 for (int j=0; j<initialDt.J; j++){
+	   lb_ah[j] = 0.0;
+	   ub_ah[j] = 1.0;
+	   coef_ah[j] = 0.0;
+	   type_ah[j] = GRB_CONTINUOUS;
+	   name_ah[j] = "ah" + to_string(j);
+	 }
+	 ah_var = m.addVars(lb_ah,ub_ah,coef_ah,type_ah,name_ah,initialDt.J);
+
+	 s_var = m.addVars(initialDt.J, GRB_BINARY);
+
+	 GRBLinExpr sum_sj, sum_ahj;
+
+	 for (int j=0; j<T.J; j++){
+	   m.addConstr(-s_var[j],GRB_LESS_EQUAL,a_var[j],"-sj<=aj_j="+to_string(j));
+	   m.addConstr(s_var[j],GRB_GREATER_EQUAL,a_var[j],"-sj>=aj_j="+to_string(j));
+	   m.addConstr(-ah_var[j],GRB_LESS_EQUAL,a_var[j],"-ah_j<=aj_j="+to_string(j));
+	   m.addConstr(ah_var[j],GRB_GREATER_EQUAL,a_var[j],"-ah_j>=aj_j="+to_string(j));
+
+	   sum_sj += s_var[j];
+	   sum_ahj += ah_var[j];
+	 }
+	 m.addConstr(sum_ahj,GRB_LESS_EQUAL,ll_var,"sum_ahj<=d");
+	 
+	 int sum_sj_star = 0;
+	 for (int j=0; j<initialDt.J; j++){
+	   if (!equalTo(T.a[t*initialDt.J+j],0)){
+	     sum_sj_star += 1;
+	   }
+	 }
+	 m.addConstr(sum_sj,GRB_LESS_EQUAL,sum_sj_star,"sum_sj<=s_star");
+	 m.addConstr(sum_sj,GRB_GREATER_EQUAL,ll_var,"sum_sj>=d");
+	 m.addConstr(b1_var,GRB_GREATER_EQUAL,-ll_var,"-d<=b1");
+      }
+      m.addConstr(b2_var,GRB_LESS_EQUAL,ll_var,"b2<=d");
+
+      vector<int> cumulL, cumulR;
+      int cpt=0;
+
+      string constraint_name;
+      for (int g=0; g<IL[t].size(); g++){
+	GRBLinExpr sum_ax = 0;
+	for (int j=0; j<initialDt.J; j++){
+	  sum_ax += a_var[j]*cl.clusters[IL[t][g]].bar[j];
+	}
+        
+	constraint_name = "representative_g_goes_into_left_branch_g="+to_string(g);
+	m.addConstr(sum_ax,GRB_LESS_EQUAL,b1_var,constraint_name);
+
+	for (int i=0; i<cl.clusters[IL[t][g]].pts.size(); i++){
+	  GRBLinExpr sum_ax_i = 0;
+	  for (int j=0; j<initialDt.J; j++){
+	    sum_ax_i += a_var[j]*initialDt.X[cl.clusters[IL[t][g]].pts[i]*initialDt.J+j];
+	  }
+
+	  if (univ){
+	    constraint_name = "going_to_left_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_LESS_EQUAL,b1_var+(1+mu)*(1-z_var[(cpt+i)*2]),constraint_name);
+	    constraint_name = "going_to_right_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_GREATER_EQUAL,b2_var-(1-z_var[(cpt+i)*2+1]),constraint_name);
+	  }
+	  else{
+	    constraint_name = "going_to_left_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_LESS_EQUAL,b1_var+(2+mu)*(1-z_var[(cpt+i)*2]),constraint_name);
+	    constraint_name = "going_to_right_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_GREATER_EQUAL,b2_var-2*(1-z_var[(cpt+i)*2+1]),constraint_name);
+	  }
+
+	  constraint_name = "cluster_cassé?_g="+to_string(g)+"_i"+to_string(i);
+	  m.addConstr(psi_var[g],GRB_GREATER_EQUAL, z_var[(cpt+i)*2+1], constraint_name);
+	}
+	cumulL.push_back(cpt);
+	cpt += cl.clusters[IL[t][g]].pts.size();
+      }
+      
+      for (int g=0; g<IR[t].size(); g++){
+	GRBLinExpr sum_ax = 0;
+	for (int j=0; j<initialDt.J; j++){
+	  sum_ax += a_var[j]*cl.clusters[IR[t][g]].bar[j];
+	}
+	constraint_name = "representative_g_goes_into_right_branch_g="+to_string(g+IL[t].size());
+	m.addConstr(sum_ax,GRB_GREATER_EQUAL,b2_var,constraint_name);
+	
+	for (int i=0; i<cl.clusters[IR[t][g]].pts.size(); i++){
+	  GRBLinExpr sum_ax_i = 0;
+	  for (int j=0; j<initialDt.J; j++){
+	    sum_ax_i += a_var[j]*initialDt.X[cl.clusters[IR[t][g]].pts[i]*initialDt.J+j];
+	  }
+
+	  if (univ){
+	    constraint_name = "going_to_left_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_LESS_EQUAL,b1_var+(1+mu)*(1-z_var[(cpt+i)*2]),constraint_name);
+	    constraint_name = "going_to_right_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_GREATER_EQUAL,b2_var-(1-z_var[(cpt+i)*2+1]),constraint_name);
+	  }
+	  else{
+	    constraint_name = "going_to_left_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i+mu,GRB_LESS_EQUAL,b1_var+(2+mu)*(1-z_var[(cpt+i)*2]),constraint_name);
+	    constraint_name = "going_to_right_branch_i="+to_string(cpt+i);
+	    m.addConstr(sum_ax_i,GRB_GREATER_EQUAL,b2_var-2*(1-z_var[(cpt+i)*2+1]),constraint_name);
+	  }
+	  
+	  constraint_name = "cluster_cassé?_g="+to_string(g+IL[t].size())+"_i"+to_string(i);
+	  m.addConstr(psi_var[g+IL[t].size()],GRB_GREATER_EQUAL, z_var[(cpt+i)*2], constraint_name);
+	}
+	cumulR.push_back(cpt);
+	cpt += cl.clusters[IR[t][g]].pts.size();
+      }
+
+      GRBLinExpr sum_zil = 0,
+	sum_zir = 0;
+      for (int i=0; i<nbPoints; i++){
+	sum_zil += z_var[i*2];
+	sum_zir += z_var[i*2+1];
+	m.addConstr(z_var[i*2],GRB_LESS_EQUAL,ll_var,"zil<=ll_i="+to_string(i));
+	m.addConstr(z_var[i*2+1],GRB_LESS_EQUAL,lr_var,"zir<=lr_i="+to_string(i));
+	m.addConstr(z_var[i*2] + z_var[i*2+1],GRB_EQUAL,1,"zil+zir=1"+to_string(i));
+      }
+      m.addConstr(sum_zil,GRB_GREATER_EQUAL,Nmin*ll_var,"sum_zil>=Nmin*ll");
+      m.addConstr(sum_zir,GRB_GREATER_EQUAL,Nmin*lr_var,"sum_zir>=Nmin*lr");
+      
+      GRBLinExpr objFunc = 0;
+      for (int g=0; g<IL[t].size()+IR[t].size(); g++){
+	objFunc += psi_var[g]; // on minimise le nomber de clusters cassés
+      }
+      objFunc += (b1_var - b2_var)/4; // et la marge faite à chaque séparation
+      objFunc += (IL[t].size()+IR[t].size())*(1-ll_var); // on pénalise beaucoup le fait de devenir une feuille
+      m.setObjective(objFunc,GRB_MINIMIZE);
+
+      if (setPrecision){
+	m.set(GRB_DoubleParam_IntFeasTol, GLOBAL_PRECISION); // val par def : 10-5, on passe à 10-6
+	m.set(GRB_DoubleParam_FeasibilityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+	m.set(GRB_DoubleParam_OptimalityTol, GLOBAL_PRECISION); // comme la valeur par defaut
+      }
+
+      //m.write("model" + to_string(t)+".lp");
+      freopen("gurobi_text.txt", "a", stdout);
+
+      m.optimize();
+
+      freopen("/dev/tty", "w", stdout);
+      remove("gurobi_text.txt");
+
+      if (equalTo(ll_var.get(GRB_DoubleAttr_X),0)){ // on transforme le noeud en feuille
+	int* nbPerClass = new int[T.K];
+	for (int k=0; k<T.K; k++){
+	  nbPerClass[k] = 0;
+	}
+	for (int c=0; c<IL[t].size(); c++){
+	  nbPerClass[cl.clusters[IL[t][c]].lb] += cl.clusters[IL[t][c]].pts.size();
+	}
+	for (int c=0; c<IR[t].size(); c++){
+	  nbPerClass[cl.clusters[IR[t][c]].lb] += cl.clusters[IR[t][c]].pts.size();
+	}
+	T.c[t] = 0;
+	for (int k=1; k<T.K; k++){
+	  if(nbPerClass[k] > nbPerClass[T.c[t]]){
+	    T.c[t] = k;
+	  }
+	}
+	T.b[t] = 0;
+	for (int j=0; j<T.J; j++){
+	  T.a[t*T.J+j] = 0;
+	}
+	vector<int> changingNodes = {t*2+1,t*2+2};
+	while(changingNodes.size() > 0){
+	  int currentNode = changingNodes.back();
+	  changingNodes.pop_back();
+	  T.c[currentNode] == -1;
+	  if (currentNode < T.N){
+	    for (int j=0; j<T.J; j++){
+	      T.a[currentNode*T.J+j] = 0;
+	    }
+	    T.b[currentNode] = 0;
+	    IL[currentNode] = {};
+	    IR[currentNode] = {};
+	    changingNodes.push_back(currentNode*2+1);
+	    changingNodes.push_back(currentNode*2+2);
+	  }	    
+	}
+      }
+      else{
+	T.b[t] = (b1_var.get(GRB_DoubleAttr_X) + b2_var.get(GRB_DoubleAttr_X))/ 2;
+	for (int j=0; j<initialDt.J; j++){
+	  T.a[t*initialDt.J+j] = a_var[j].get(GRB_DoubleAttr_X);
+	}
+
+	int currentILsize = IL[t].size(),
+	  currentIRsize = IR[t].size();
+	
+	if (greaterThan(m.get(GRB_DoubleAttr_ObjVal),0)){
+	  B = true;
+	  for (int g=0; g<currentILsize; g++){
+	    if (psi_var[g].get(GRB_DoubleAttr_X) > 0){
+	      vector<vector<int>> division;
+	      division.push_back({});
+	      division.push_back({});
+	      for (int i=0; i<cl.clusters[IL[t][g]].pts.size(); i++){
+		if (z_var[(cumulL[g]+i)*2+1].get(GRB_DoubleAttr_X) > 0){
+		  division[1].push_back(cl.clusters[IL[t][g]].pts[i]);
+		}
+		else{
+		  division[0].push_back(cl.clusters[IL[t][g]].pts[i]);
+		}
+	      }
+	      cl.breakCluster(IL[t][g], division, initialDt);
+	      int lf = T.predict_leaf(cl.clusters.back().bar);
+	      while(lf>t){
+		int alf = (lf-1)/2;
+		if(lf<T.N){
+		  if (lf== alf*2+1){
+		    IL[alf].push_back(cl.clusters.size()-1);
+		  }
+		  else{
+		    IR[alf].push_back(cl.clusters.size()-1);
+		  }
+		}
+		lf = alf;
+	      }
+	    }
+	  }
+	  for (int g=0; g<currentIRsize; g++){
+	    if (psi_var[g+currentILsize].get(GRB_DoubleAttr_X) > 0){
+	      vector<vector<int>> division;
+	      division.push_back({});
+	      division.push_back({});
+	      for (int i=0; i<cl.clusters[IR[t][g]].pts.size(); i++){
+		if (z_var[(cumulR[g]+i)*2].get(GRB_DoubleAttr_X) > 0){
+		  division[1].push_back(cl.clusters[IR[t][g]].pts[i]);
+		}
+		else{
+		  division[0].push_back(cl.clusters[IR[t][g]].pts[i]);
+		}
+	      }
+	      cl.breakCluster(IR[t][g], division, initialDt);
+	      int lf = T.predict_leaf(cl.clusters.back().bar);
+	      while(lf>t){
+		int alf = (lf-1)/2;
+		if(lf<T.N){
+		  if (lf== alf*2+1){
+		    IL[alf].push_back(cl.clusters.size()-1);
+		  }
+		  else{
+		    IR[alf].push_back(cl.clusters.size()-1);
+		  }
+		}
+		lf = alf;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  
+  return B;
+}
+/*
+bool isIntersectingOG(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool univ, bool updateCl, int Nmin){
   vector<int>* IL = new vector<int>[T.N];
   vector<int>* IR = new vector<int>[T.N];
   T.compute_ILIR(IL, IR, currentDt, true);
@@ -174,6 +515,18 @@ bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& current
 	
 	cpt += cl.clusters[IR[t][g]].pts.size();
       }
+
+      GRBLinExpr sum_left = 0,
+	sum_right = 0;
+      for (int i=0; i<nbPoints; i++){
+	sum_left += z_var[i*2];
+	sum_right += z_var[i*2+1];
+      }
+      constraint_name = "verif_Nmin_left";
+      m.addConstr(sum_left, GRB_GREATER_EQUAL, Nmin, constraint_name);
+      constraint_name = "verif_Nmin_right";
+      m.addConstr(sum_right, GRB_GREATER_EQUAL, Nmin, constraint_name);
+      
       GRBLinExpr objFunc = 0;
       for (int g=0; g<IL[t].size()+IR[t].size(); g++){
 	objFunc += psi_var[g]; // on minimise le nomber de clusters cassés
@@ -191,8 +544,11 @@ bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& current
       freopen("gurobi_text.txt", "a", stdout);
 
       m.optimize();
-      
+
       freopen("/dev/tty", "w", stdout);
+      remove("gurobi_text.txt");
+
+      
       // updating the tree
 
       T.b[t] = (b1_var.get(GRB_DoubleAttr_X) + b2_var.get(GRB_DoubleAttr_X))/ 2;
@@ -212,7 +568,8 @@ bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& current
 	    isCut[IR[t][g]].push_back(t);
 	  }
 	}
-      }      
+      }
+      
     }
   }
 
@@ -239,8 +596,381 @@ bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& current
 
   return B;
 }
+*/
 
-solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, int timeL){
+solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL){
+  clustering clust = cl.clustering_copy();
+  parameters pm = p.parameters_copy();
+
+  pm.MIPFocus = 1;
+
+  bool keepGoing = true;
+
+  solClust solC = solClust();
+  solC.nbClInitial = clust.clusters.size();
+
+  //clust.showClusters();
+  int cpt = 0;
+  
+  GRBEnv env = GRBEnv();
+  while(timeL-solC.totTime> 10.0 and keepGoing and clust.clusters.size() < dt.I){
+    cpt += 1;
+
+    time_t t1 = time (NULL);
+    
+    dataset currentDt = clust.createDt(dt);
+    pm.update(currentDt);
+
+    GRBModel md = GRBModel(env);
+    build_model model = build_model(md,currentDt,modelt,pm);
+
+    Tree cartTree = pythonCART(currentDt,pm.D,pm.C,pm.Nmin);
+    if (cpt == 1){
+      model.add_warmstart(cartTree, currentDt);
+    }
+    else{
+      if (cartTree.prediction_errors(currentDt) > solC.T.back().prediction_errors(currentDt)){
+	model.add_warmstart(solC.T.back(), currentDt);
+      }
+      else{
+	model.add_warmstart(cartTree, currentDt);
+      }
+    }
+
+    solution sol = model.solve2(md,timeL-solC.totTime);
+    time_t t2 = time (NULL);
+    solC.nbCl.push_back(clust.clusters.size()); // on met le nombre de cl considérés avant de potentiellement changer les clusters
+    keepGoing = isIntersecting(sol.T, clust, dt, currentDt, modelt.univ, pm.Nmin);
+    time_t t3 = time (NULL);
+
+    /*
+    // on récupère des infos mais c'est à court terme
+    freopen("bsMIPFocus1.txt", "a", stdout);
+    cout << "Iteration " << cpt << endl;
+    cout << cartTree.prediction_errors(currentDt) << endl;
+    cout << sol.obj << endl;
+    cout << sol.gap << endl;
+    cout << sol.T.prediction_errors(dt) << endl;
+    cout << sol.time << endl;
+    freopen("/dev/tty", "w", stdout);
+    // a delete plus tard */
+
+    solC.T.push_back(sol.T);
+    solC.solveTime.push_back(t2-t1);
+    solC.centeringTime.push_back(t3-t2);
+    solC.gap.push_back(sol.gap);
+    solC.totTime += t3 - t1;
+    solC.nbIter += 1;
+    solC.obj.push_back(sol.obj);
+    solC.errCl.push_back(solC.T.back().prediction_errors(currentDt));
+    solC.errDt.push_back(solC.T.back().prediction_errors(dt));
+
+    if (solC.totTime > timeL){
+      break;
+    }
+  }
+  solC.nbClFinal = clust.clusters.size();
+  solC.finalCl = clust.clustering_copy();
+
+  if (solC.errCl.back() == 0){
+    if (solC.errDt.back() == 0){
+      solC.pseudoGap = 0.0;
+    }
+    else{
+      solC.pseudoGap = 1.0;
+    }
+  }
+  else{
+    solC.pseudoGap = (double)(solC.errCl.back()-solC.errDt.back())/(double)solC.errCl.back();
+  }
+  
+  return solC;
+}
+
+solClust iteratingCART(dataset& dt, clustering& cl, parameters p){
+  clustering clust = cl.clustering_copy();
+
+  bool keepGoing = true;
+
+  solClust solC = solClust();
+  solC.nbClInitial = clust.clusters.size();
+
+  Tree OGcartTree = pythonCART(dt, p.D,p.C,p.Nmin);
+
+  //OGcartTree.write_tree("iteration0.txt");
+
+  cout << "Nombre de données initial " << dt.I << endl;
+  cout << "Valeur CART initiale " << OGcartTree.prediction_errors(dt) << endl;
+
+  cout << "Taille du cluster original " << cl.clusters.size() <<endl;
+  int cpt = 0;
+  while(keepGoing and clust.clusters.size() < dt.I){
+    cpt += 1;
+    dataset currentDt = clust.createDt(dt);
+
+    Tree cartTree = pythonCART(currentDt, p.D,p.C,p.Nmin);
+    
+    solC.nbCl.push_back(clust.clusters.size());
+    keepGoing = isIntersecting(cartTree, clust, dt, currentDt, true, true);
+
+    cout << "Iteration " << cpt << endl;
+    cout << "Taille du cluster " << clust.clusters.size() <<endl;
+    cout << "Erreur sur Cl " << cartTree.prediction_errors(currentDt) << endl;
+    cout << "Erreur sur Dt " <<cartTree.prediction_errors(dt) << endl;
+
+    //cartTree.write_tree("iteration"+to_string(cpt)+".txt");
+
+    solC.T.push_back(cartTree);
+    solC.nbIter += 1;
+    solC.errCl.push_back(solC.T[solC.T.size()-1].prediction_errors(currentDt));
+    solC.errDt.push_back(solC.T[solC.T.size()-1].prediction_errors(dt));
+  }
+
+  solC.nbClFinal = clust.clusters.size();
+  solC.finalCl = clust.clustering_copy();
+
+
+  //clust.showClusters();
+
+  return solC;
+}
+
+/*
+void buildPR(GRBModel& md, dataset& dt, clustering& cl, model_type modelt, parameters p){
+  variable_def a_var;
+  if (mt.univ){
+    a_var = variable_def("a", p.J * p.N, !mt.relaxation);
+  }
+  else{
+    a_var = variable_def("a", p.J * p.N, false, -1, 1);
+  }
+  GRBVar* a = md.addVars(a_var.lb, a_var.ub, a_var.coef, a_var.type, a_var.names, a_var.count);
+
+  if (!mt.univ){
+    variable_def ah_var = variable_def("ah", p.J * p.N, false),
+      s_var = variable_def("s", p.J * p.N, true);
+    GRBVar* s = md.addVars(s_var.lb, s_var.ub, s_var.coef, s_var.type, s_var.names, s_var.count);
+    GRBVar* a_h = md.addVars(ah_var.lb, ah_var.ub, ah_var.coef, ah_var.type, ah_var.names, ah_var.count);
+  }
+
+  variable_def b_var;
+  if (mt.univ){
+    GRBVar* b_var = variable_def("b", p.N, false);    
+  }
+  else{
+    GRBVar* b_var = variable_def("b", p.N, false, -1, 1);
+  }
+  GRBVar* b = md.addVars(b_var.lb, b_var.ub, b_var.coef, b_var.type, b_var.names, b_var.count);
+
+  variable_def c_var = variable_def("c", p.K * p.L, !mt.relaxation);
+  GRBVar* c = md.addVars(c_var.lb, c_var.ub, c_var.coef, c_var.type, c_var.names, c_var.count);
+
+  variable_def d_var = variable_def("d", p.N, !mt.relaxation);
+  GRBVar* d = md.addVars(d_var.lb, d_var.ub, d_var.coef, d_var.type, d_var.names, d_var.count);
+
+  variable_def l_var = variable_def("l", p.L, !mt.relaxation);
+  GRBVar* l = md.addVars(l_var.lb, l_var.ub, l_var.coef, l_var.type, l_var.names, l_var.count);
+
+  variable_def r_var = variable_def("r", p.I, !mt.relaxation);
+  GRBVar* r = md.addVars(r_var.lb, r_var.ub, r_var.coef, r_var.type, r_var.names, r_var.count);
+
+  variable_def theta_var = variable_def("theta", p.L * cl.clusters.size() * p.K, false);
+  GRBVar* theta = md.addVars(theta_var.lb, theta_var.ub, theta_var.coef, theta_var.type, theta_var.names, theta_var.count);
+  
+  variable_def z_var = variable_def("z", cl.clusters.size() * p.L, !mt.relaxation);
+  GRBVar* z = md.addVars(z_var.lb, z_var.ub, z_var.coef, z_var.type, z_var.names, z_var.count);
+
+  string constraint_name;
+  
+  if (mt.univ){
+    for (int t=0; t<p.N; t++){ // sum a_jt = d_t
+      GRBLinExpr sum_a_jt = 0;
+      for (int j=0; j<p.J; j++){
+	sum_a_jt += a[t*p.J+j];
+      }
+      constraint_name = "sumajt_EQ_dt_t=" + to_string(t);
+      md.addConstr(sum_a_jt, GRB_EQUAL, d[t],constraint_name);
+    }
+    for (int t=0; t<p.N; t++){ // 0 <= b_t <= d_t
+      constraint_name = "bt_LEQ_dt_t=" + to_string(t);
+      md.addConstr(b[t], GRB_LESS_EQUAL, d[t], constraint_name);
+      constraint_name = "bt_GEQ_0_t=" + to_string(t);
+      md.addConstr(b[t], GRB_GREATER_EQUAL, 0, constraint_name);
+    }
+  }
+  else{
+    for (int t=0; t<p.N; t++){
+      GRBLinExpr sum_s_jt = 0;
+      for (int j=0; j<p.J; j++){ // pleins de chose
+	constraint_name = "ajt_LEQ_ahjt_t=" + to_string(t) + "_j=" + to_string(j);
+	md.addConstr(a[t*p.J+j], GRB_LESS_EQUAL, a_h[t*p.J+j], constraint_name);
+	constraint_name = "-ajt_LEQ_ahjt_t=" + to_string(t) + "_j=" + to_string(j);
+	md.addConstr(-a[t*p.J+j], GRB_LESS_EQUAL, a_h[t*p.J+j], constraint_name);
+	constraint_name = "ajt_LEQ_sjt_t=" + to_string(t) + "_j=" + to_string(j);
+	md.addConstr(a[t*p.J+j], GRB_LESS_EQUAL, s[t*p.J+j], constraint_name);
+	constraint_name = "-ajt_LEQ_sjt_t=" + to_string(t) + "_j=" + to_string(j);
+	md.addConstr(-a[t*p.J+j], GRB_LESS_EQUAL, s[t*p.J+j], constraint_name);
+	constraint_name = "sjt_LEQ_dt=" + to_string(t) + "_j=" + to_string(j);
+	md.addConstr(s[t*p.J+j], GRB_LESS_EQUAL, d[t], constraint_name);
+	sum_s_jt += s[t*p.J+j];
+      }
+      constraint_name = "sum_sjt_GEQ_dt=" + to_string(t);
+      md.addConstr(sum_s_jt,GRB_GREATER_EQUAL,d[t], constraint_name);
+    }
+    for (int t = 0; t < p.N; t++) { // sum ah_jt <= d_t
+      GRBLinExpr sum_ah_jt = 0;
+      for (int j = 0; j < p.J; j++) {
+	sum_ah_jt += a_h[t * p.J + j];
+      }
+      constraint_name = "sumahjt_LEQ_dt_t=" + to_string(t);
+      md.addConstr(sum_ah_jt, GRB_LESS_EQUAL, d[t], constraint_name);
+    }
+    for (int t = 0; t < p.N; t++) { // -d_t <= b_t <= d_t
+        constraint_name = "bt_LEQ_dt_t=" + to_string(t);
+        md.addConstr(b[t], GRB_LESS_EQUAL, d[t], constraint_name);
+	constraint_name = "bt_GEQ_-dt_t=" + to_string(t);
+        md.addConstr(b[t], GRB_GREATER_EQUAL, -d[t], constraint_name);
+    }
+  }
+  for (int t = 1; t < p.N; t++) { // d_t <= d_a(t)
+    int a_t = (t + 1) / 2 - 1;
+    constraint_name = "dt_LEQ_dat_t=" + to_string(t);
+    md.addConstr(d[t], GRB_LESS_EQUAL, d[a_t], constraint_name);
+  }
+  for (int i=0; i<cl.clusters.size(); i++){ // z_it <= l_t
+    for (int t=0; t<p.L; t++){
+      constraint_name = "zct_LEQ_lt_c=" + to_string(i) + "_t="+to_string(t);
+      md.addConstr(z[i*p.L+t], GRB_LESS_EQUAL,l[t],constraint_name);
+    }
+  }
+  for (int t=0; t<p.L; t++){ // sum_i z_it >= Nmin*l_t
+    GRBLinExpr sum_z_ct = 0;
+    for (int i=0; i<cl.clusters.size(); i++){
+      sum_z_ct += dt.weights[i] * z[i*p.L+t];
+    }
+    constraint_name = "sumzct_GEQ_Nminlt_t=" + to_string(t);
+    md.addConstr(sum_z_ct, GRB_GREATER_EQUAL, p.Nmin*l[t], constraint_name);
+  }
+  for (int i=0; i<cl.clusters.size(); i++){ // sum_t z_it = 1
+    GRBLinExpr sum_z_ct = 0;
+    for (int t=0; t<p.L; t++){
+      sum_z_ct += z[i*p.L+t];
+    }
+    constraint_name = "sumzct_EQ_1_c=" + to_string(i);
+    md.addConstr(sum_z_ct,GRB_EQUAL,1, constraint_name);
+  }
+  for (int t=0; t<p.L; t++){ // sum_k c_kt = l_t
+    GRBLinExpr sum_c_kt = 0;
+    for (int k=0; k<p.K; k++){
+      sum_c_kt += c[t*p.K+k];
+    }
+    constraint_name = "sumckt_EQ_lt_t=" + to_string(t);
+    md.addConstr(sum_c_kt, GRB_EQUAL, l[t], constraint_name);
+  }
+  for (int t=0; t<p.L; t++){
+    vector<int> A_L = {};
+    vector<int> A_R = {};
+    get_ancestors(A_L,A_R,t,p.D);
+    for (int i=0; i<p.I; i++){
+      for (auto g : A_L) {
+	GRBLinExpr left_b_mb_g = 0,
+	  left_b_mb_d = 0;
+	for (int j = 0; j < p.J; j++) {
+	  left_b_mb_g += a[g * p.J + j] * dt.X[i * p.J + j];
+	  if (mt.univ){
+	    left_b_mb_g += a[g * p.J + j] * (p.mu_vect[j] - p.mu_min);
+	  }
+	}
+	if (mt.univ){
+	  left_b_mb_g += p.mu_min;
+	  left_b_mb_d += (1+p.mu_max)*(2-z[cl.clusterOf[i]*p.L+t]-r[i]);
+	}
+	else{
+	  left_b_mb_g += mu;
+	  left_b_mb_d += (2+mu)*(2-z[cl.clusterOf[i]*p.L+t]-r[i]);
+	}
+	left_b_mb_d += b[g];
+                
+	constraint_name = "left_branching_t=" + to_string(t) + "_i=" + to_string(i) + "_m=" + to_string(g);
+	md.addConstr(left_b_mb_g,GRB_LESS_EQUAL,left_b_mb_d,constraint_name);
+      }
+      for (auto g : A_R){
+	GRBLinExpr right_b_mb_g = 0,
+	  right_b_mb_d = 0;
+	for (int j = 0; j < p.J; j++) {
+	  right_b_mb_g += a[g * p.J + j] * dt.X[i * p.J + j];
+	}
+	if (mt.univ){
+	  right_b_mb_d -= 2-z[cl.clusterOf[i]*p.L+t]-r[i];
+	}
+	else{
+	  right_b_mb_d -= 2*(2-z[cl.clusterOf[i]*p.L+t]-r[i]);
+	}
+	right_b_mb_d += b[g];
+	constraint_name = "right_branching_t=" + to_string(t) + "_i=" + to_string(i) + "_m=" + to_string(g);
+	md.addConstr(right_b_mb_g,GRB_GREATER_EQUAL,right_b_mb_d, constraint_name);
+      }
+    }
+    for (auto g: A_L){
+	constraint_name = "lt_LEQ_dm_t=" + to_string(t) + "_m=" + to_string(g);
+	md.addConstr(l[t],GRB_LESS_EQUAL,d[g], constraint_name);
+    }
+  }
+  for (int t=0; t<p.L; t++){
+    for (int i=0; i<cl.clusters.size(); i++){
+      for (int k=0; k<p.K; k++){
+	// theta_tik >= 0
+	constraint_name = "theta_tik_def1_t="+to_string(t)+"_i="+to_string(i)+"_k="+to_string(k);
+	md.addConstr(theta[t*cl.clusters.size()*p.K+i*p.K+k],GRB_GREATER_EQUAL,0,constraint_name);
+
+	// theta_tik >= c_tk + z_it - 1
+	constraint_name = "theta_tik_def2_t="+to_string(t)+"_i="+to_string(i)+"_k="+to_string(k);
+	md.addConstr(theta[t*cl.clusters.size()*p.K+i*p.K+k],GRB_GREATER_EQUAL,c[t*p.K+k]+z[i*p.L+t]-1,constraint_name);
+      }
+    }
+  }
+  for (int i=0; i<cl.clusters.size(); i++){
+    GRBLinExpr sum_ri = 0;
+    for (auto ip: cl.clusters[i].pts){
+      sum_ri += r[ip];
+    }
+    constraint_name = "sum_ri_i_in_C=1_C=" + to_string(i);
+    md.addConstr(sum_ri,GRB_EQUAL,1, constraint_name);
+  }
+
+  if (mt.C_const){ // penalizing the complexity with a constraint
+    md.addConstr(complx,GRB_LESS_EQUAL,p.C,"limit_complexity");
+  }
+
+  GRBLinExpr complx = 0;
+  if (mt.univ){
+    for (int t=0; t<p.N; t++){
+      complx += var.d[t];
+    }
+  }
+  else{
+    for (int j=0; j<p.J; j++){
+      for (int t=0; t<p.N; t++){
+	complx += var.s[t*p.J+j];
+      }
+    }
+  }
+
+  GRBLinExpr expr = 0;
+  for (int i=0; i<cl.clusters.size(); i++){
+    for (int k=0; k<p.K; k++){
+      if (cl.clusters[i].lb !=k){
+	for (int t=0; t<p.L; t++){
+	  expr += dt.weights[i] * var.theta[t*p.I*p.K+i*p.K+k]/ p.L_hat;
+	}
+      }
+    }
+  }
+  expr += complx*p.alph;
+  md.setObjective(expr,GRB_MINIMIZE);
+}
+
+solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, int timeL){ // A MODIFFFF
   clustering clust = cl.clustering_copy();
   parameters pm = p.parameters_copy();
 
@@ -289,3 +1019,4 @@ solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters
 
   return solC;
 }
+*/

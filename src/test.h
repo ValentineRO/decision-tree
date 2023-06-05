@@ -35,16 +35,17 @@ class statistical_test_matrix : public info_matrix{
 
 class learning_test_matrix : public info_matrix{
  public :
-  int nb_models, nb_part, DMAX;
+  int nb_models, nb_part, nb_depths;
   string dataset;
 
   learning_test_matrix(){}
-  learning_test_matrix(int nb_mod, int nb_p, string dts, int D);
-  void write_line(int p, int model_cpt, string model, double time_l, training_results tr);
+  learning_test_matrix(int nb_mod, int nb_p, string dts, int nb_d);
+  void write_lines(int p, int model_cpt, string model, bool thereIsPP, double time_l, training_results tr);
   void write_result_partition(int p);
 };
 
 void test(string dataset);
-void learning_test(string dataset, int depth_max);
-void testClust(string datasetName, float time_l);
-void clustStats(string datasetName);
+void learning_test(string dataset, int depth_max, bool doOCT = true);
+//void testClustAncien(string datasetName, float time_l);
+//void testClust(string datasetName, float time_l, bool useAlgoLong=true);
+void createClusterings(string datasetName, bool useAlgoLong);

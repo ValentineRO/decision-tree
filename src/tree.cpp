@@ -18,13 +18,20 @@ Tree::Tree(int D_, int J_, int K_){
 
     a = new double[J*N];
     b = new double[N];
+    c = new int[L+N];
     eps = new double[N];
 
     for (int t=0; t<N; t++){
-      eps[t] = 0;
+        for (int j=0; j<J; j++){
+            a[t*J+j] = 0.0;
+        }
+        b[t] = 0.0;
+	eps[t] = 0.0;
+        c[t] = -1;
     }
-
-    c = new int[L+N];
+    for (int t=N; t<N+L; t++){
+        c[t] = -1;
+    }
 }
 
 Tree Tree::copy(){
@@ -295,10 +302,10 @@ void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
       }
       
       //m.write("model.lp");
-      //freopen("post_pr.txt", "a", stdout);
+      freopen("post_pr.txt", "a", stdout);
       m.optimize();
-      //freopen("/dev/tty", "w", stdout);
-      //remove("post_pr.txt");
+      freopen("/dev/tty", "w", stdout);
+      remove("post_pr.txt");
       b[t] = b_var.get(GRB_DoubleAttr_X);
       eps[t] = e_min.get(GRB_DoubleAttr_X);
       double sum_a = 0;
@@ -350,6 +357,39 @@ Tree Tree::bigger_tree(int new_D){
   }
 
   return new_T;
+}
+
+Tree Tree::adjustTree(dataset& dt){
+  Tree newT = copy();
+
+  bool* bUnchanged = new bool[N];
+  for (int t=0; t<N; t++){
+    bUnchanged[t] = true;
+  }
+  for (int i=0; i<dt.I; i++){
+    int node = 0;
+    for (int d=0; d<D;d++){
+      if (c[node]>=0){
+	break;
+      }
+      double sum=0;
+      for (int j=0; j<J;j++){
+	sum += dt.X[i*J+j]*a[node*J+j];
+      }
+      if (lessThan(sum,b[node])){
+	node = 2*node+1;
+      }
+      else{
+	// changing b value for that node
+	if (sum < newT.b[node] or bUnchanged[node]){
+	  newT.b[node] = sum;
+	  bUnchanged[node] = false;
+	}
+	node = 2*node+2;
+      }
+    }
+  }
+  return newT;
 }
 
 Tree Tree::reduceComplexity(dataset& dt, int Nmin, double mu){
@@ -559,6 +599,18 @@ Tree Tree::removeSplit(dataset& dt){
   return best_tree;
 }
 
+int Tree::countComplexity(){
+  int cmplx = 0;
+  for (int n=0; n<N; n++){
+    for (int j=0; j<J; j++){
+      if (lessThan(a[n*J+j],0) or greaterThan(a[n*J+j],0)){
+	cmplx += 1;
+      }
+    }
+  }
+  return cmplx;
+}
+
 int Tree::predict_class(double x[]){
   int node = 1;
   for (int d=0; d<D;d++){
@@ -574,6 +626,23 @@ int Tree::predict_class(double x[]){
     
   }
   return c[node-1];
+}
+
+int Tree::predict_leaf(double x[]){
+  int node = 1;
+  for (int d=0; d<D;d++){
+    if (c[node-1] >= 0){
+      return c[node-1];
+    }
+    double sum=0;
+    for (int j=0; j<J;j++){
+      sum += x[j]*a[(node-1)*J+j];
+    }
+    if (lessThan(sum,b[node-1])){node = 2*node;}
+    else{node = node*2 +1;}
+    
+  }
+  return node-1;
 }
 
 void Tree::predict_classes(dataset& dt,int predictions[]){

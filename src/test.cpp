@@ -39,10 +39,10 @@ void info_matrix::write_csv(string namefile, int beg_line, int end_l){
 
 
 statistical_test_matrix::statistical_test_matrix(int nb_mod, int nb_p, int nb_dep, string dts, int Nm, float alph, vector<double> tl){
-  nb_columns = 22;
-  columns_name = new string[22];
-  string cl_n[22] = { "Dataset", "Partition", "Model", "Time_Limit", "Profondeur", "Alpha", "Nmin", "Objective", "Error train", "Number of branchings", "Time", "Gap", "Nodes", "Root Relaxation", "Error_test", "Error_test_Post_Pr","Objective1min","Objective2min","Objective5min","Objective10min","Objective20min","Objective30min"};
-  for (int c = 0; c<22; c++){
+  nb_columns = 17;
+  columns_name = new string[17];
+  string cl_n[17] = { "Dataset", "Partition", "Model", "Time_Limit", "Profondeur", "Alpha", "Nmin", "Objective", "Error train", "Number of branchings", "Time", "Gap", "Nodes", "Root Relaxation", "Error_test", "Error_test_Post_Pr","ObjectiveEvolution"};
+  for (int c = 0; c<17; c++){
     columns_name[c] = cl_n[c];
   }
   
@@ -54,7 +54,7 @@ statistical_test_matrix::statistical_test_matrix(int nb_mod, int nb_p, int nb_de
   dataset = dts;
   Nmin = Nm;
   alpha = alph;
-  timeL = tl[5]; // ya que 6 temps différents
+  timeL = tl[0] + tl[1] + tl[2] + tl[3] + tl[4] + tl[5]; // ya que 6 temps différents
 
   content = new string[nb_columns*nb_lines];
 }
@@ -79,13 +79,7 @@ void statistical_test_matrix::write_line(int p, int d, int model_cpt, string mod
   content[cpt + 13] = to_string(sol.root_rel);
   content[cpt + 14] = error_test;
   content[cpt + 15] = error_test_pp;
-
-  for (int tl=0; tl<sol.objEvo.size(); tl++){
-    content[cpt + 16 + tl] = sol.objEvo[tl];
-  }
-  for (int tl=sol.objEvo.size(); tl<6; tl++){
-    content[cpt + 16 + tl] = content[cpt + 16 + tl - 1];
-  }
+  //content[cpt + 16] = sol.objEvo;
 }
 
 void statistical_test_matrix::write_result_partition(int p){
@@ -95,51 +89,63 @@ void statistical_test_matrix::write_result_partition(int p){
   write_csv(namefile, beg_line, end_line);
 }
 
-learning_test_matrix::learning_test_matrix(int nb_mod, int nb_p, string dts, int D){
-  nb_columns = 26;
-  columns_name = new string[26];
-  string cl_n[26] = { "Dataset", "Partition", "Model", "Time_Limit","DMAX", "Temps","Nb opti","Nb iter",
-		      "%err_m1","alpha_m1","best_tree_m1","%err_m2","alpha_m2","best_tree_m2","%err_m3","alpha_m3","best_tree_m3",
-		      "%err_m4","alpha_m4","best_tree_m4","%err_m5","alpha_m5","best_tree_m5","%err_m6","alpha_m6","best_tree_m6"};
-  for (int c = 0; c<26; c++){
+learning_test_matrix::learning_test_matrix(int nb_mod, int nb_p, string dts, int nb_d){
+  nb_columns = 17;
+  columns_name = new string[17];
+  string cl_n[17] = { "Dataset", "Partition", "Model", "Time_Limit","Depth", "Temps","Nb opti","Nb iter",
+		      "%errWithoutPP","alphaWithoutPP","bestTreeWithoutPP","%errWithPP","alphaWithPP","bestTreeWithPP",
+		      "%errBestOfBoth","alphaBestOfBoth","bestTreeBestOfBoth"};
+  for (int c = 0; c<17; c++){
     columns_name[c] = cl_n[c];
   }
   
-  nb_lines = nb_mod*nb_p;
+  nb_lines = nb_mod*nb_p*nb_d;
   nb_models= nb_mod;
   nb_part = nb_p;
-  DMAX = D;
+  nb_depths = nb_d;
   
   dataset = dts;
 
   content = new string[nb_columns*nb_lines];
 }
 
-void learning_test_matrix::write_line(int p, int model_cpt, string model, double time_l, training_results tr){
-  int cpt = (p*nb_models + model_cpt)*nb_columns;
-  
-  content[cpt + 0] = dataset;
-  content[cpt + 1] = to_string(p);
-  content[cpt + 2] = model;
-  content[cpt + 3] = to_string(time_l);
-  content[cpt + 4] = to_string(DMAX);
-  content[cpt + 5] = to_string(tr.time);
-  content[cpt + 6] = to_string(tr.nb_opti);
-  content[cpt + 7] = to_string(tr.nb_iter);
-  for (int i = 0; i<6; i++){
-    content[cpt + 8 + i*3] = to_string(tr.perc_err[i]);
-    content[cpt + 9 + i*3] = to_string(tr.alph[i]);
-    content[cpt + 10 + i*3] = tr.best_tree[i];
+void learning_test_matrix::write_lines(int p, int model_cpt, string model, bool thereIsPP, double time_l, training_results tr){
+  int cpt = (p*nb_models*nb_depths + model_cpt*nb_depths)*nb_columns;
+
+  for (int d=0; d<nb_depths; d++){
+    content[cpt + nb_columns*d + 0] = dataset;
+    content[cpt + nb_columns*d + 1] = to_string(p);
+    content[cpt + nb_columns*d + 2] = model;
+    content[cpt + nb_columns*d + 3] = to_string(time_l);
+    content[cpt + nb_columns*d + 4] = to_string(d+2);
+    content[cpt + nb_columns*d + 5] = to_string(tr.time[d]);
+    content[cpt + nb_columns*d + 6] = to_string(tr.nbOpti[d]);
+    content[cpt + nb_columns*d + 7] = to_string(tr.nbIter[d]);
+   
+    content[cpt + nb_columns*d + 8] = to_string(tr.percErrWithoutPP[d]);
+    content[cpt + nb_columns*d + 9] = to_string(tr.alphWithoutPP[d]);
+    content[cpt + nb_columns*d + 10] = tr.bestTreeWithoutPP[d];
+
+    if (thereIsPP){
+      content[cpt + nb_columns*d + 11] = to_string(tr.percErrWithPP[d]);
+      content[cpt + nb_columns*d + 12] = to_string(tr.alphWithPP[d]);
+      content[cpt + nb_columns*d + 13] = tr.bestTreeWithPP[d];
+
+      content[cpt + nb_columns*d + 14] = to_string(tr.percErrBestOfBoth[d]);
+      content[cpt + nb_columns*d + 15] = to_string(tr.alphBestOfBoth[d]);
+      content[cpt + nb_columns*d + 16] = tr.bestTreeBestOfBoth[d];
+    }
   }
 }
 
 void learning_test_matrix::write_result_partition(int p){
-  int beg_line = p*nb_models,
-    end_line = (p+1)*nb_models;
-  string namefile = "../results/"+dataset+"_DMAX"+to_string(DMAX)+ "_part" + to_string(p) + "_learning_test.csv";
+  int beg_line = p*nb_models*nb_depths,
+    end_line = (p+1)*nb_models*nb_depths;
+  string namefile = "../results/"+dataset+"_DMAX"+to_string(nb_depths+1)+ "_part" + to_string(p) + "_learning_test.csv";
   write_csv(namefile, beg_line, end_line);
 }
 
+/*
 void test(string dataset_name){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(dataset_name);
@@ -171,6 +177,7 @@ void test(string dataset_name){
 
       model_cpt = 0;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " OCT - start : "<< date<<endl;
       GRBModel oct = GRBModel(env);
@@ -182,6 +189,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"OCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " QOCT - start : "<< date<<endl;
       GRBModel qoct = GRBModel(env);
@@ -193,6 +201,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"QOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " FOCT - start : "<< date<<endl;
       GRBModel foct = GRBModel(env);
@@ -204,6 +213,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"FOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " GOCT - start : "<< date<<endl;
       GRBModel goct = GRBModel(env);
@@ -215,6 +225,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"GOCT",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " F - start : "<< date<<endl;
       GRBModel f = GRBModel(env);
@@ -226,6 +237,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"F",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " OCTH - start : "<< date<<endl;
       GRBModel octh = GRBModel(env);
@@ -237,6 +249,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"OCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " QOCTH - start : "<< date<<endl;
       GRBModel qocth = GRBModel(env);
@@ -248,6 +261,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"QOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " FOCTH - start : "<< date<<endl;
       GRBModel focth = GRBModel(env);
@@ -259,6 +273,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"FOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " GOCTH - start : "<< date<<endl;
       GRBModel gocth = GRBModel(env);
@@ -270,6 +285,7 @@ void test(string dataset_name){
       results.write_line(p,d,model_cpt,"GOCTH",sol,to_string(et),to_string(et_pp));
       model_cpt += 1;
 
+      now = time(0);
       date = ctime(& now);
       cout << "Partition " << p << " FH - start : "<< date<<endl;
       GRBModel fh = GRBModel(env);
@@ -286,15 +302,21 @@ void test(string dataset_name){
   }
   results.write_csv("../results/"+dataset_name+"_tl"+to_string(results.timeL)+"_alp"+to_string(alph) + "_test.csv");
 }
+*/
 
-void learning_test(string dataset_name, int depth_max){
+void learning_test(string dataset_name, int depth_max, bool doOCT){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(dataset_name);
-  
-  int nb_models = 6,
-    nb_part = 5;
 
-  learning_test_matrix results = learning_test_matrix(nb_models, nb_part, dataset_name, depth_max);
+  int nb_models = 6,
+    nb_part = 5,
+    nb_depth = depth_max -1;
+
+  if (!doOCT){
+    nb_models = 4;
+  }
+
+  learning_test_matrix results = learning_test_matrix(nb_models, nb_part, dataset_name, nb_depth);
     
   solution sol;
   int model_cpt;
@@ -314,20 +336,22 @@ void learning_test(string dataset_name, int depth_max){
     double time_limit_univ = 1800.0,
       time_limit_multiv = 300.0;
 
-    now = time(0);
-    date = ctime(& now);
-    cout << endl;
-    cout << "Partition "<< p << " / " << nb_part << " - Model OCT - start : "<< date<<endl; 
-    tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, true, depth_max, time_limit_univ, Nmin);
-    results.write_line(p,model_cpt,"OCT",time_limit_univ,tr);
-    model_cpt += 1;
+    if (doOCT){
+      now = time(0);
+      date = ctime(& now);
+      cout << endl;
+      cout << "Partition "<< p << " / " << nb_part << " - Model OCT - start : "<< date<<endl; 
+      tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, true, depth_max, time_limit_univ, Nmin);
+      results.write_lines(p,model_cpt,"OCT",false,time_limit_univ,tr);
+      model_cpt += 1;
+    }
     
     now = time(0);
     date = ctime(& now);
     cout << endl;
     cout << "Partition "<< p << " / " << nb_part << " - Model FOCT - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::FOCT, true, depth_max, time_limit_univ, Nmin);
-    results.write_line(p,model_cpt,"FOCT",time_limit_univ,tr);
+    results.write_lines(p,model_cpt,"FOCT",true,time_limit_univ,tr);
     model_cpt += 1;
 
     now = time(0);
@@ -335,23 +359,26 @@ void learning_test(string dataset_name, int depth_max){
     cout << endl;
     cout << "Partition "<< p << " / " << nb_part << " - Model F - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::F, true, depth_max, time_limit_univ,0);
-    results.write_line(p,model_cpt,"F",time_limit_univ,tr);
+    results.write_lines(p,model_cpt,"F",true,time_limit_univ,tr);
     model_cpt += 1;
 
-    now = time(0);
-    date = ctime(& now);
-    cout << endl;
-    cout << "Partition "<< p << " / " << nb_part << " - Model OCTH - start : "<< date<<endl; 
-    tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, false, depth_max, time_limit_multiv, Nmin);
-    results.write_line(p,model_cpt,"OCTH",time_limit_multiv,tr);
-    model_cpt += 1;
+    
+    if (doOCT){
+      now = time(0);
+      date = ctime(& now);
+      cout << endl;
+      cout << "Partition "<< p << " / " << nb_part << " - Model OCTH - start : "<< date<<endl; 
+      tr = learning_Bertsimas(dt_train, dt_validation, dt_test, baseModel::OCT, false, depth_max, time_limit_multiv, Nmin);
+      results.write_lines(p,model_cpt,"OCTH",false,time_limit_multiv,tr);
+      model_cpt += 1;
+    }
 
     now = time(0);
     date = ctime(& now);
     cout << endl;
     cout << "Partition "<< p << " / " << nb_part << " - Model FOCTH - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::FOCT, false, depth_max, time_limit_multiv, Nmin);
-    results.write_line(p,model_cpt,"FOCTH",time_limit_multiv,tr);
+    results.write_lines(p,model_cpt,"FOCTH",true,time_limit_multiv,tr);
     model_cpt += 1;
 
     now = time(0);
@@ -359,16 +386,16 @@ void learning_test(string dataset_name, int depth_max){
     cout << endl;
     cout << "Partition "<< p << " / " << nb_part << " - Model FH - start : "<< date<<endl; 
     tr = learning(dt_train, dt_validation, dt_test, baseModel::F, false, depth_max, time_limit_multiv, 0);
-    results.write_line(p,model_cpt,"FH",time_limit_multiv,tr);
+    results.write_lines(p,model_cpt,"FH",true,time_limit_multiv,tr);
     model_cpt += 1;
 
     results.write_result_partition(p);
   }
-  
   results.write_csv("../results/"+dataset_name+"_DMAX"+to_string(depth_max) + "_learning_test.csv");
 }
- 
-void testClust(string datasetName, float time_l){
+
+/*
+void testClustAncien(string datasetName, float time_l){
   GRBEnv env = GRBEnv();
   dataset dt = dataset(datasetName);
 
@@ -458,10 +485,10 @@ void testClust(string datasetName, float time_l){
 	for (int c=0; c<clz.size(); c++){
 	  cout << dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C) <<endl;
 	  string filename = "../resultsIteratingAlgo/" + dt.name + "/"+ dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
-	  solClust solC = iteratingOTP(dt_train, clz[c], mtz[i], paramz[i],time_l);
+	  solClust solC = approxIteratingOTP(dt_train, clz[c], mtz[i], paramz[i],time_l);
 	  solC.addClusteringTime(clzTimes[c]);
-	  solC.errTr = solC.T.prediction_errors(dt_train);
-	  solC.errTst = solC.T.prediction_errors(dt_test);
+	  solC.errTr = solC.finalTree.prediction_errors(dt_train);
+	  solC.errTst = solC.finalTree.prediction_errors(dt_test);
 	  solC.write(filename);
 	}
 	string filename = "../resultsIteratingAlgo/" + dt.name +"/"+ dt.name+ "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
@@ -484,18 +511,19 @@ void testClust(string datasetName, float time_l){
   iM.write_csv("../resultsIteratingAlgo/"+datasetName+"/clusteringStats.csv");
 }
 
-void clustStats(string datasetName){
+void testClust(string datasetName, float time_l, bool useAlgoLong){
+  GRBEnv env = GRBEnv();
   dataset dt = dataset(datasetName);
 
   int nbPart = 5;
-  int nbClustering = 12;
-  //int nbClustering = 39;
+  int nbClustering = 11+(int)useAlgoLong*2;
 
-  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consitency","meanDist"};
+  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consistency","meanDist"};
 
   info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
   
   for (int p=0; p<nbPart; p++){
+    cout << "################# Partition " << p << endl;
     dataset dt_train, dt_test, dt_validation;
     dt.readPartition(p,dt_train, dt_validation, dt_test);
 
@@ -507,49 +535,41 @@ void clustStats(string datasetName){
     vector<time_t> clzTimes;
     vector<string> clzNames;
 
-    for (int gm=1; gm<10; gm++){
-      time_t t1 = time (NULL);
-      clz.push_back(hierarchicalClustering(dt_train,(float)gm/10));
-      time_t t2 = time (NULL);
-      clzTimes.push_back(t2-t1);
-      clzNames.push_back("hierarchLab"+to_string(gm)+"0%");
 
-      /*
+    time_t t1, t2;
+    for (int i=1; i<10; i++){
       t1 = time (NULL);
-      clz.push_back(hierarchicalClustering(dt_train,(float)gm/10, false));
+      clz.push_back(hierarchicalClustering(dt_train,(float)i*0.1));
       t2 = time (NULL);
       clzTimes.push_back(t2-t1);
-      clzNames.push_back("hierarchNoLab"+to_string(gm)+"0%");
-
-      t1 = time (NULL);
-      clz.push_back(kMeansClustering(dt_train,(float)gm/10));
-      t2 = time (NULL);
-      clzTimes.push_back(t2-t1);
-      clzNames.push_back("kMeansLab"+to_string(gm)+"0%");
-
-      t1 = time (NULL);
-      clz.push_back(kMeansClustering(dt_train,(float)gm/10, false));
-      t2 = time (NULL);
-      clzTimes.push_back(t2-t1);
-      clzNames.push_back("kMeansNoLab"+to_string(gm)+"0%");*/
+      clzNames.push_back("Greedy"+to_string(i)+"0%");
     }
-    time_t t1 = time (NULL);
-    clz.push_back(homogeneousClustering(dt_train, false));
-    time_t t2 = time (NULL);
-    clzTimes.push_back(t2-t1);
-    clzNames.push_back("AlgoLongBary");
 
-    t1 = time (NULL);
-    clz.push_back(homogeneousClustering(dt_train, true));
-    t2 = time (NULL);
-    clzTimes.push_back(t2-t1);
-    clzNames.push_back("AlgoLongMedoid");
+    if (useAlgoLong){
+      t1 = time (NULL);
+      clz.push_back(homogeneousClustering(dt_train, false));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("AlgoLongBary");
+
+      t1 = time (NULL);
+      clz.push_back(homogeneousClustering(dt_train, true));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("AlgoLongMedoid");
+    }
 
     t1 = time (NULL);
     clz.push_back(weightedGreedyClustering(dt_train));
     t2 = time (NULL);
     clzTimes.push_back(t2-t1);
     clzNames.push_back("BetterGreedy");
+
+    t1 = time (NULL);
+    clz.push_back(hierarchicalClustering(dt_train,(float)clz[nbClustering-2].clusters.size()/dt_train.I));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("GreedyCommeBetterGreedy");
 
     for (int c=0; c<clz.size(); c++){
       string line[8];
@@ -564,6 +584,141 @@ void clustStats(string datasetName){
 
       iM.write_line(p*nbClustering + c, line);
     }
+
+    for (int D=3; D<5; D++){
+      int Cmin = D,
+  	CmaxU = pow(2,D)-1,
+	CmaxM = dt.J*(pow(2,D) -1);
+      
+      model_type mtz[4] = {model_type(baseModel::FOCT,true, false, true, false),
+			model_type(baseModel::FOCT,true, false, true, false),
+			model_type(baseModel::FOCT,false, false, true, false),
+			model_type(baseModel::FOCT,false, false, true, false)};
+
+      parameters paramz[4] = {parameters(D, dt_train, (double)1/(Cmin+1), Cmin, false, Nmin),
+			      parameters(D, dt_train, (double)1/(CmaxU+1), CmaxU, false, Nmin),
+			      parameters(D, dt_train, (double)1/(Cmin+1), Cmin, false, Nmin),
+			      parameters(D, dt_train, (double)1/(CmaxM+1), CmaxM, false, Nmin)};
+      for (int i=0; i<4; i++){
+	string typeOfSplit;
+	if (mtz[i].univ){
+	  typeOfSplit = "UNIV";
+	}
+	else{
+	  typeOfSplit = "MULTIV";
+	}
+	
+	for (int c=0; c<clz.size(); c++){
+	  cout << dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C) <<endl;
+	  string filename = "../resultsIteratingAlgo/" + dt.name + "/"+ dt.name + "_part"+to_string(p)+"_" + clzNames[c]+"_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+	  solClust solC = approxIteratingOTP(dt_train, clz[c], mtz[i], paramz[i],time_l);
+	  solC.addClusteringTime(clzTimes[c]);
+	  solC.errTr = solC.finalTree.prediction_errors(dt_train);
+	  solC.errTst = solC.finalTree.prediction_errors(dt_test);
+	  solC.write(filename);
+	}
+	string filename = "../resultsIteratingAlgo/" + dt.name +"/"+ dt.name+ "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C)+".txt";
+
+	CART CARTalg = CART(dt_train, paramz[i].D, paramz[i].C, paramz[i].Nmin);
+	Tree CARTtree = CARTalg.getTree(dt_train);
+
+	cout << dt.name + "_part"+to_string(p)+"_NoClust_"+ typeOfSplit +"_D="+to_string(D) +"_C="+to_string(paramz[i].C) << endl;
+	GRBModel foct = GRBModel(env);
+	t1 = time (NULL);
+	build_model FOCT = build_model(foct,dt_train,mtz[i],paramz[i]);
+	FOCT.add_warmstart(CARTtree, dt_train);
+	solution sol = FOCT.solve(foct,time_l);
+	t2 = time (NULL);
+     
+	fstream file;
+	file.open(filename,ios::out | std::ofstream::trunc);
+	file << t2-t1 <<endl;
+	file << sol.T.prediction_errors(dt_train) << endl;
+	file << sol.T.prediction_errors(dt_test) << endl;
+	file.close();
+      }
+    }
   }
-  iM.write_csv("../resultsIteratingAlgo/"+datasetName+"_clusteringStats.csv");
+  iM.write_csv("../resultsIteratingAlgo/"+datasetName+"/clusteringStats.csv");
+}
+*/
+
+void createClusterings(string datasetName, bool useAlgoLong){
+  dataset dt = dataset(datasetName);
+
+  int nbPart = 5;
+  int nbClustering = 6;
+  //int nbClustering = 39;
+
+  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consistency","meanDist"};
+
+  info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
+  
+  for (int p=0; p<nbPart; p++){
+    dataset dt_train, dt_test, dt_validation;
+    dt.readPartition(p,dt_train, dt_validation, dt_test);
+
+    dt_train.computeDists();
+
+    vector<clustering> clz;
+    vector<time_t> clzTimes;
+    vector<string> clzNames;
+
+    time_t t1 = time (NULL);
+    clz.push_back(hierarchicalClustering(dt_train, 0.15));
+    time_t t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("hierarchicalClustering15");
+
+    t1 = time (NULL);
+    clz.push_back(hierarchicalClustering(dt_train, 0.35));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("hierarchicalClustering35");
+
+    t1 = time (NULL);
+    clz.push_back(homogeneousClustering(dt_train));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("barycenterClustering");
+
+    t1 = time (NULL);
+    clz.push_back(homogeneousClustering(dt_train,true));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("medoidClustering");
+
+    t1 = time (NULL);
+    clz.push_back(weightedGreedyClustering(dt_train));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("betterGreedyClustering");
+
+    float percRed = (float)clz[4].clusters.size()/dt_train.I;
+
+    t1 = time (NULL);
+    clz.push_back(hierarchicalClustering(dt_train, percRed));
+    t2 = time (NULL);
+    clzTimes.push_back(t2-t1);
+    clzNames.push_back("hierarchicalClusteringGprop");
+
+    for (int c=0; c<clz.size(); c++){
+      string line[8];
+      line[0] = to_string(p);
+      line[1] = clzNames[c];
+      line[2] = to_string(clzTimes[c]);
+      line[3] = to_string((float)clz[c].clusters.size()/dt_train.I);
+      line[4] = to_string(clz[c].computeHomogeneity(dt_train));
+      line[5] = to_string(clz[c].computeExclusion(dt_train));
+      line[6] = to_string(clz[c].computeConsistency(dt_train));
+      line[7] = to_string(clz[c].computeMeanDist(dt_train));
+
+      iM.write_line(p*nbClustering + c, line);
+
+      clz[c].write("../TreesAndPartitions/" + datasetName + "/part" + to_string(p) + "_" + clzNames[c] + "_NUMBERS.txt");
+      dataset clDt = clz[c].createDt(dt_train, c == 3);
+      clDt.writeDataset("../TreesAndPartitions/" + datasetName + "/part" + to_string(p) + "_" + clzNames[c] + ".txt");
+    }
+  }
+  iM.write_csv("../TreesAndPartitions/" + datasetName + "/clusteringStats.csv");
 }

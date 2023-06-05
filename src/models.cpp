@@ -33,6 +33,9 @@ void build_model::add_warmstart(Tree T, dataset &dt){
   if (T.D < param.D){
     T = T.bigger_tree(param.D);
   }
+  if (mt.univ){
+    T = T.adjustTree(dt);
+  }
   int* val_d = new int[param.N];
   for (int t=0; t<param.N; t++){
     var.b[t].set(GRB_DoubleAttr_Start,T.b[t]);
@@ -91,12 +94,7 @@ void build_model::add_warmstart(Tree T, dataset &dt){
     T.predict_paths(dt,paths);
 
     int* preds = new int[dt.I];
-    if (mt.univ){
-      T.predict_classes(dt,preds);
-    }
-    else{
-      T.predict_classes(dt,preds);
-    }
+    T.predict_classes(dt,preds);
     
     for (int i=0; i<dt.I; i++){
       if (preds[i] == dt.Y[i]){
@@ -137,35 +135,28 @@ void build_model::add_warmstart(Tree T, dataset &dt){
       }
     }
     for (int t=0; t<param.L; t++){
+      if(val_c[t] != -1){
+	var.l[t].set(GRB_DoubleAttr_Start,1);
+      }
+      else{
+	var.l[t].set(GRB_DoubleAttr_Start,0);
+      }
       for (int k=0; k<T.K; k++){
 	var.c[t*T.K+k].set(GRB_DoubleAttr_Start,(int)(val_c[t]==k)); // if there is a true leaf, then we will have a ckt=1, otherwise they all equal 0
       }
     }
     
     int* leaves = new int[param.I];
-    if (mt.univ){
-      T.predict_leaves(dt,leaves);
-    }
-    else{
-      T.predict_leaves(dt,leaves);
-    }
+    T.predict_leaves(dt,leaves);
     
     for (int t=0; t<param.L; t++){
-      bool is_open = false;
       for (int i=0; i<dt.I; i++){
 	if (t == leaves[i]){
 	  var.z[i*param.L+t].set(GRB_DoubleAttr_Start,1);
-	  is_open = true;
 	}
 	else{
 	  var.z[i*param.L+t].set(GRB_DoubleAttr_Start,0);
 	}
-      }
-      if (is_open){
-	var.l[t].set(GRB_DoubleAttr_Start,1);
-      }
-      else{
-	var.l[t].set(GRB_DoubleAttr_Start,0);
       }
     }
 
@@ -173,7 +164,6 @@ void build_model::add_warmstart(Tree T, dataset &dt){
       for (int t=0; t<param.L; t++){
 	for (int i=0; i<dt.I; i++){
 	  for (int k=0; k<dt.K; k++){
-	    
 	    if (leaves[i]==t and val_c[t]==k){
 	      var.theta[t*dt.I*dt.K+i*dt.K+k].set(GRB_DoubleAttr_Start,1);
 	    }
@@ -603,31 +593,13 @@ void build_model::get_z(int z[]){
   */
 }
 
-solution build_model::solve(GRBModel& md, double timeL, vector<double> time_limit){
-  vector<double> timeList;
-  
-  if (time_limit.size() == 0){
-    timeList.push_back(timeL);
+solution build_model::solve(GRBModel& md, double timeL, int solLim){
+  md.set("TimeLimit", to_string(timeL));
+  if (solLim != -1){
+    md.set("SolutionLimit",to_string(solLim));
   }
-  else{
-    timeList = time_limit;
-  }
-
   freopen("gurobi_text.txt", "a", stdout);
-  vector<double> obj_evo;
-  double gap;
-  for (int tl=0; tl<timeList.size(); tl++){
-    md.set("TimeLimit", to_string(timeList[tl]));
-    md.optimize();
-
-    gap = md.get(GRB_DoubleAttr_MIPGap);
-    if (gap < 0.00001){
-      break;
-    }
-    else{
-      obj_evo.push_back(md.get(GRB_DoubleAttr_ObjVal));
-    }
-  }
+  md.optimize();
   freopen("/dev/tty", "w", stdout);
   remove("gurobi_text.txt");
 
@@ -635,7 +607,7 @@ solution build_model::solve(GRBModel& md, double timeL, vector<double> time_limi
   int nb_br = compute_number_branchings();
 
   int err_tr = 0;
-  err_tr = ceil(obj_val - param.alph*nb_br)*param.L_hat;
+  err_tr = round((obj_val - param.alph*nb_br)*param.L_hat);
   
   double rr = read_root_rel_objvalue();
   
@@ -645,7 +617,53 @@ solution build_model::solve(GRBModel& md, double timeL, vector<double> time_limi
   Tree T = Tree(param.D,param.J,param.K);
   buildTree(T);
 
-  return solution(T,obj_val,obj_evo,err_tr,nb_br,md.get(GRB_DoubleAttr_Runtime),md.get(GRB_DoubleAttr_MIPGap),(int)md.get(GRB_DoubleAttr_NodeCount),rr);   
+  return solution(T,obj_val,err_tr,nb_br,md.get(GRB_DoubleAttr_Runtime),md.get(GRB_DoubleAttr_MIPGap),(int)md.get(GRB_DoubleAttr_NodeCount),rr);   
+}
+
+solution build_model::solve2(GRBModel& md, double timeL, double stoppingPerc){
+  //int solLim = (int)withWS; // avec si il y a warm start on a deja une solution
+
+  if (param.MIPFocus != -1){
+    md.set("MIPFocus", to_string(param.MIPFocus));
+  }
+
+  double computing_time = 0.0;
+  if (timeL < 60.0){
+    computing_time = timeL;
+  }
+  else{
+    computing_time = max(timeL*stoppingPerc,60.0);
+  }
+  md.set("TimeLimit", to_string(computing_time));
+  freopen("gurobi_text.txt", "a", stdout);
+  md.optimize();
+  float totTime = md.get(GRB_DoubleAttr_Runtime);
+
+  /*
+  if (totTime > timeL*stoppingPerc and md.get(GRB_IntAttr_SolCount)==solLim){
+      md.set("SolutionLimit",to_string(solLim+1));
+      md.set("TimeLimit", to_string(timeL*(1-stoppingPerc)));
+
+      md.optimize();
+      totTime += md.get(GRB_DoubleAttr_Runtime);
+  }
+  */
+  
+  freopen("/dev/tty", "w", stdout);
+  remove("gurobi_text.txt");
+
+  double obj_val = md.get(GRB_DoubleAttr_ObjVal);
+  int nb_br = compute_number_branchings();
+
+  int err_tr = 0;
+  err_tr = round((obj_val - param.alph*nb_br)*param.L_hat);
+  
+  double rr = read_root_rel_objvalue();
+  
+  Tree T = Tree(param.D,param.J,param.K);
+  buildTree(T);
+  
+  return solution(T,obj_val,err_tr,nb_br,totTime,md.get(GRB_DoubleAttr_MIPGap),(int)md.get(GRB_DoubleAttr_NodeCount),rr);
 }
 
 double build_model::read_root_rel_objvalue(){

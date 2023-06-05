@@ -36,6 +36,7 @@ class build_model{
   void buildTree(Tree& T);
   void get_z(int z[]);
   
-  solution solve(GRBModel& md, double timeL = 3600.0, vector<double> time_limit = {});
+  solution solve(GRBModel& md, double timeL = 3600.0, int solLim = -1);
+  solution solve2(GRBModel& md, double timeL = 3600.0, double stoppingPerc = 0.333);
 };
 

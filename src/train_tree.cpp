@@ -13,7 +13,7 @@ string model_name(baseModel bm, bool univ){
 
 training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin){
 
-  training_results tr = training_results();
+  training_results tr = training_results(DMAX-1);
 
   int nb_sol_tot = 0;
   
@@ -76,24 +76,30 @@ training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, d
       freopen("/dev/tty", "w", stdout);
       remove("gurobi_text.txt");
       
-      tr.time += sol.time;
-      tr.nb_opti += (int)(sol.time<= time_limit);
-      tr.nb_iter += 1;
+      tr.globalTime += sol.time;
+      tr.globalNbOpti += (int)(sol.time<= time_limit);
+      tr.globalNbIter += 1;
+    }
+
+    if (D != 1){
+      tr.time[D-2] = tr.globalTime;
+      tr.nbOpti[D-2] = tr.globalNbOpti;
+      tr.nbIter[D-2] = tr.globalNbIter;
+      
+      int best = dom_trees.BestTree(true);      
+      tr.bestTreeWithoutPP[D-2] = dom_trees.trees[best].namefile;
+      tr.percErrWithoutPP[D-2] = (double)dom_trees.trees[best].Et / (double) dt_test.I;
+      tr.alphWithoutPP[D-2] = (dom_trees.alph[best]+dom_trees.alph[best+1])/2.0;
+      tr.alphWithoutPP[D-2] /= (float)dt_train.L_h;
     }
   }
-
-  int best = dom_trees.BestTree(true);
-  tr.best_tree[0] = dom_trees.trees[best].namefile;
-  tr.perc_err[0] = (double)dom_trees.trees[best].Et / (double) dt_test.I;
-  tr.alph[0] = (dom_trees.alph[best]+dom_trees.alph[best+1])/2.0;
-  tr.alph[0] /= (float)dt_train.L_h;
 
   return tr;
 }
 
 training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin){
   
-  training_results tr = training_results();
+  training_results tr = training_results(DMAX-1);
 
   int nb_sol_tot = 0;
   for (int i = 1; i<= DMAX; i++){
@@ -118,7 +124,7 @@ training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt
     int previousC = -1;
 
     while (C >= D){
-      tr.nb_iter += 1;
+      tr.globalNbIter += 1;
       cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
       freopen("gurobi_text.txt", "a", stdout);
       GRBEnv env = GRBEnv();
@@ -201,61 +207,162 @@ training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt
       freopen("/dev/tty", "w", stdout);
       remove("gurobi_text.txt");
       
-      tr.time += sol.time;
-      tr.nb_opti += (int)(sol.time<= time_limit);
+      tr.globalTime += sol.time;
+      tr.globalNbOpti += (int)(sol.time<= time_limit);
 
       previousC = sol.nb_br;
       C = sol.nb_br-1;
     }
-  }
+    if (D != 1){
+      tr.time[D-2] = tr.globalTime;
+      tr.nbOpti[D-2] = tr.globalNbOpti;
+      tr.nbIter[D-2] = tr.globalNbIter;
 
-  int* best = new int[4];
-  
-  best[0] = dom_trees_s_pp.BestTree(true);
-  tr.best_tree[0] = dom_trees_s_pp.trees[best[0]].namefile;
-  tr.perc_err[0] = (double) dom_trees_s_pp.trees[best[0]].Et / (double) dt_test.I;
-  tr.alph[0] = (dom_trees_s_pp.alph[best[0]]+dom_trees_s_pp.alph[best[0]+1])/2.0;
-  
-  best[1] = dom_trees_s_pp.BestTree(false);
-  tr.best_tree[1] = dom_trees_s_pp.trees[best[1]].namefile;
-  tr.perc_err[1] = (double) dom_trees_s_pp.trees[best[1]].Et / (double) dt_test.I;
-  tr.alph[1] = (dom_trees_s_pp.alph[best[1]]+dom_trees_s_pp.alph[best[1]+1])/2.0;
-  
-  best[2] = dom_trees_a_pp.BestTree(true);
-  tr.best_tree[2] = dom_trees_a_pp.trees[best[2]].namefile;
-  tr.perc_err[2] = (double) dom_trees_a_pp.trees[best[2]].Et / (double) dt_test.I;
-  tr.alph[2] = (dom_trees_a_pp.alph[best[2]]+dom_trees_a_pp.alph[best[2]+1])/2.0;
-  
-  best[3] = dom_trees_a_pp.BestTree(false);
-  tr.best_tree[3] = dom_trees_a_pp.trees[best[3]].namefile;
-  tr.perc_err[3] = (double) dom_trees_a_pp.trees[best[3]].Et / (double) dt_test.I;
-  tr.alph[3] = (dom_trees_a_pp.alph[best[3]]+dom_trees_a_pp.alph[best[3]+1])/2.0;
-  
-  // best between sans post-process et with post-process pour section du plus petit alpha
-  if (dom_trees_s_pp.trees[best[0]].Ev < dom_trees_a_pp.trees[best[2]].Ev){
-    tr.best_tree[4] = dom_trees_s_pp.trees[best[0]].namefile;
-    tr.perc_err[4] = tr.perc_err[0];
-    tr.alph[4] = tr.alph[0];
-  }
-  else{
-    tr.best_tree[4] = dom_trees_a_pp.trees[best[2]].namefile;
-    tr.perc_err[4] = tr.perc_err[2];
-    tr.alph[4] = tr.alph[2];
-  }
-  // best between sans post-process et with post-process pour section du plus grand alpha
-  if (dom_trees_s_pp.trees[best[1]].Ev < dom_trees_a_pp.trees[best[3]].Ev){
-    tr.best_tree[5] = dom_trees_s_pp.trees[best[1]].namefile;
-    tr.perc_err[5] = tr.perc_err[1];
-    tr.alph[5] = tr.alph[1];
-  }
-  else{
-    tr.best_tree[5] = dom_trees_a_pp.trees[best[3]].namefile;
-    tr.perc_err[5] = tr.perc_err[3];
-    tr.alph[5] = tr.alph[3];
-  }
+      int bestSansPP = dom_trees_s_pp.BestTree(true),
+	bestAvecPP = dom_trees_a_pp.BestTree(true);
 
-  for (int i=0; i<6; i++){
-    tr.alph[i] /= (float)dt_train.L_h;
+      tr.bestTreeWithoutPP[D-2] = dom_trees_s_pp.trees[bestSansPP].namefile;
+      tr.percErrWithoutPP[D-2] = (double) dom_trees_s_pp.trees[bestSansPP].Et / (double) dt_test.I;
+      tr.alphWithoutPP[D-2] = (dom_trees_s_pp.alph[bestSansPP]+dom_trees_s_pp.alph[bestSansPP+1])/2.0;
+      tr.alphWithoutPP[D-2] /= (float)dt_train.L_h;
+
+      tr.bestTreeWithPP[D-2] = dom_trees_a_pp.trees[bestAvecPP].namefile;
+      tr.percErrWithPP[D-2] = (double) dom_trees_a_pp.trees[bestAvecPP].Et / (double) dt_test.I;
+      tr.alphWithPP[D-2] = (dom_trees_a_pp.alph[bestAvecPP]+dom_trees_a_pp.alph[bestAvecPP+1])/2.0;
+      tr.alphWithPP[D-2] /= (float)dt_train.L_h;
+
+      if (dom_trees_s_pp.trees[bestSansPP].Ev < dom_trees_a_pp.trees[bestAvecPP].Ev){
+	tr.bestTreeBestOfBoth[D-2] = tr.bestTreeWithoutPP[D-2];
+	tr.percErrBestOfBoth[D-2] = tr.percErrWithoutPP[D-2];
+	tr.alphBestOfBoth[D-2] = tr.alphWithoutPP[D-2];
+      }
+      else{
+	tr.bestTreeBestOfBoth[D-2] = tr.bestTreeWithPP[D-2];
+	tr.percErrBestOfBoth[D-2] = tr.percErrWithPP[D-2];
+	tr.alphBestOfBoth[D-2] = tr.alphWithPP[D-2];
+      }
+    }
+  }
+  
+  return tr;
+}
+
+training_results_cl learningWithClustering(dataset& dt_train, dataset& dt_validation, dataset& dt_test, clustering cl, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, int selectingStrat){
+
+  training_results_cl tr = training_results_cl(DMAX-1);
+
+  int nb_sol_tot = 0;
+  for (int i = 1; i<= DMAX; i++){
+    if (univ){
+      nb_sol_tot += (int)pow(2,i)-i;
+    }
+    else{
+      nb_sol_tot += (int)pow(2,i)*dt_train.J-i;
+    }
+  }
+  
+  model_type mt = model_type(bm, univ, false, true, false);
+
+  dominating_trees dom_trees = dominating_trees(nb_sol_tot,dt_train.L_h);
+    
+  for (int D=1; D<=DMAX; D++){
+    int CMAX = (int)pow(2,D)-1;
+    if (!univ){ CMAX *= dt_train.J;}
+    
+    int C = CMAX;
+    int previousC = -1;
+
+    while (C >= D){
+      tr.globalNbIter += 1;
+      cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
+
+      parameters p = parameters(D,dt_train,1.0/(2*C),C,false,Nmin);
+
+      solClust solC = approxIteratingOTP(dt_train, cl, mt, p, time_limit);
+
+      int bestTree = -1;
+      if (selectingStrat == 0){// si pas opti (ie pseudoGap > 0), meilleur du train
+	bestTree = solC.T.size()-1;
+	if (solC.pseudoGap > 0){
+	  for (int t=0; t<solC.T.size()-1; t++){
+	    if (solC.errDt[bestTree] > solC.errDt[t]){
+	      bestTree = t;
+	    }
+	  }
+	}
+      }
+      if (selectingStrat == 1){// meilleur du train
+	bestTree = solC.T.size()-1;
+	for (int t=0; t<solC.T.size()-1; t++){
+	  if (solC.errDt[bestTree] > solC.errDt[t]){
+	    bestTree = t;
+	  }
+	}
+      }
+      if (selectingStrat == 2){// si pas opti (ie pseudoGap > 0), meilleur de la validation
+	bestTree = solC.T.size()-1;
+	if (solC.pseudoGap > 0){
+	  int val = solC.T[bestTree].prediction_errors(dt_validation);
+	  for (int t=0; t<solC.T.size()-1; t++){
+	    int val_t = solC.T[t].prediction_errors(dt_validation);
+	    if (val > val_t){
+	      bestTree = t;
+	      val = val_t;
+	    }
+	  }
+	}
+
+      }
+      if (selectingStrat == 3){// meilleur de la validation
+	bestTree = solC.T.size()-1;
+	int val = solC.T[bestTree].prediction_errors(dt_validation);
+	for (int t=0; t<solC.T.size()-1; t++){
+	  int val_t = solC.T[t].prediction_errors(dt_validation);
+	  if (val > val_t){
+	    bestTree = t;
+	    val = val_t;
+	  }
+	}
+      }
+
+      int nb_br = solC.T[bestTree].countComplexity();
+      
+      string itOptName = "../TreesAndPartitions/"+dt_train.name+"/itOpt_"+model_name(bm,univ)+"_"+cl.name+"_part"+to_string(dt_train.partition)+"_D"+to_string(D)+"_C"+to_string(nb_br)+"_selStrat"+to_string(selectingStrat)+".txt";
+      solC.write(itOptName);
+
+      string treeName = "../TreesAndPartitions/"+dt_train.name+"/sol_"+model_name(bm,univ)+"_"+cl.name+"_part"+to_string(dt_train.partition)+"_D"+to_string(D)+"_C"+to_string(nb_br)+"_selStrat"+to_string(selectingStrat)+".txt";
+      solC.T[bestTree].write_tree(treeName);
+
+      int error_train = (int)floor(solC.errDt[bestTree]);
+      int error_val = solC.T[bestTree].prediction_errors(dt_validation);
+      int error_test = solC.T[bestTree].prediction_errors(dt_test);
+
+      optimal_tree opt = optimal_tree(D,nb_br,error_train,error_val,error_test,treeName);
+      bool added = dom_trees.add_tree(opt);
+      
+      tr.globalTime += solC.totTime;
+      tr.globalNbOpti += (int)(solC.totTime<= time_limit);
+      tr.globalNbIterCl += solC.nbIter;
+      tr.globalPseudoGap += solC.pseudoGap;
+      tr.globalFinalReduction += (double)solC.nbClFinal/(double)dt_train.I;
+
+      previousC = nb_br;
+      C = nb_br-1;
+    }
+    if (D != 1){
+      tr.time[D-2] = tr.globalTime;
+      tr.nbOpti[D-2] = tr.globalNbOpti;
+      tr.nbIter[D-2] = tr.globalNbIter;
+      tr.nbIterCl[D-2] = (double)tr.globalNbIterCl / (double)tr.globalNbIter;
+      tr.pseudoGap[D-2] = (double)tr.globalPseudoGap / (double)tr.globalNbIter;
+      tr.finalReduction[D-2] = (double)tr.globalFinalReduction / (double)tr.globalNbIter;
+
+      int bestTree = dom_trees.BestTree(true);
+
+      tr.bestTree[D-2] = dom_trees.trees[bestTree].namefile;
+      tr.errTrain[D-2] = dom_trees.trees[bestTree].E;
+      tr.errTest[D-2] = dom_trees.trees[bestTree].Et;
+    }
   }
   
   return tr;

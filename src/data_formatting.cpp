@@ -40,6 +40,11 @@ dataset::dataset(int I_, int J_, int K_) {
   K = K_;
   X = new double[I*J];
   Y = new int[I];
+  weights = new int[I];
+
+  for (int i=0; i<I; i++){
+    weights[i] = 1;
+  }
 
   weightedPoints = false;
 }
@@ -62,8 +67,10 @@ dataset::dataset(string namefile) {
     }
   }
   Y = new int[I];
+  weights = new int[I];
   for (int i = 0; i < I; i++) {
     file >> Y[i];
+    weights[i] = 1;
     //cout << "y : " << Y[i] << "\n";
   }
   file.close();
@@ -92,6 +99,7 @@ void dataset::compute_mu(){
   }
 
   mu_min = max(mu_min, mu); // we dont want it to be smaller than the globally defined precision
+  mu_max = max(mu_max, mu); // we dont want it to be smaller than the globally defined precision
 }
 
 void dataset::computeDists(){
@@ -266,3 +274,36 @@ void dataset::readPartition(int partition_number, dataset& train, dataset& valid
   test.compute_mu();
 }
 
+void dataset::writeDataset(string namefile) {
+  fstream file;
+  file.open(namefile, ios::out); // ios::out pour écrire et ios::in pour lire
+  if (weightedPoints){
+    file << initialI << "\n";
+  }
+  else{
+    file << I << "\n";
+  }
+  file << J << "\n";
+  file << K << "\n";
+  for (int i = 0; i < I; i++) {
+    int nbTimes = 1;
+    if (weightedPoints){
+      nbTimes = weights[i];
+    }
+    for (int it=0; it<nbTimes; it++){
+      for (int j = 0; j < J; j++) {
+	file << X[i * J + j] << "\n";
+      }
+    }
+  }
+  for (int i = 0; i < I; i++) {
+    int nbTimes = 1;
+    if (weightedPoints){
+      nbTimes = weights[i];
+    }
+    for (int it=0; it<nbTimes; it++){
+      file << Y[i] << "\n";
+    }
+  }
+  file.close();
+}

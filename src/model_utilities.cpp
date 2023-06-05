@@ -25,6 +25,8 @@ parameters::parameters(int depth, dataset &dt, double alp, int param_C, bool hav
   C = param_C;
 
   alph = alp;
+
+  MIPFocus = -1;
 }
 
 parameters parameters::parameters_copy(){
@@ -51,6 +53,8 @@ parameters parameters::parameters_copy(){
     p.mu_vect[j] = mu_vect[j];
   }
 
+  p.MIPFocus = -1;
+
   return p;
 }
 
@@ -65,7 +69,6 @@ void parameters::update(dataset &dt){
   for (int j=0; j<J; j++){
     mu_vect[j] = dt.mu_vect[j];
   }
-  
 }
 
 variable_def::variable_def() {

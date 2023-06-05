@@ -98,7 +98,7 @@ counting_errors::counting_errors(GRBModel& md, variables var, model_type mt, par
 
 	// theta_tk >= sum_zit - |I \ Ik|(1- c_kt)
 	constraint_name = "theta_tk_def2_t="+to_string(t)+"_k="+to_string(k);
-	md.addConstr(var.theta[t*p.K+k],GRB_GREATER_EQUAL, sum_zit - I_Ik * var.c[t*p.K+k],constraint_name);
+	md.addConstr(var.theta[t*p.K+k],GRB_GREATER_EQUAL, sum_zit - I_Ik *(1 - var.c[t*p.K+k]),constraint_name);
       }
     }
   }

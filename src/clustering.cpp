@@ -321,6 +321,53 @@ clustering::clustering(dataset& dt, vector<vector<int>> part){
   }
 }
 
+clustering::clustering(dataset& dt, string namefile, string shortName){
+  name = shortName;
+  J = dt.J;
+  clusters = {};
+  fstream file;
+  file.open("../TreesAndPartitions/" + dt.name + "/" + namefile + ".txt", ios::in);
+  int line;
+  file >> line;
+  int c=0;
+  while (line != -1){
+    // read points of each cluster
+    vector<int> points;
+    int nbPoints = line;
+    for (int i=0; i<nbPoints; i++){
+      file >> line;
+      points.push_back(line);
+    }
+    file >> line;
+    
+    // compute cluster properties from that
+    int minID = dt.I;
+    for (auto &pt: points){
+      if (minID > pt){
+	minID = pt;
+      }
+    }
+    double* pos = new double[dt.J];
+    for (int j=0; j<dt.J; j++){
+      pos[j] = dt.X[minID*dt.J+j];
+    }
+    clusters.push_back(cluster(minID, dt.Y[minID], pos, dt.J));
+    for (auto &pt: points){
+      if (pt != minID){
+	clusters[c].pts.push_back(pt);
+	clusterOf[pt] = minID;
+      }
+    }
+    clusters[c].computeBarycenter(dt);
+    clusters[c].computeMedoid(dt);
+    clusters[c].updateLabel(dt);
+    placeOf[minID] = c;
+
+    c += 1;
+  }
+  file.close();
+}
+
 clustering clustering::clustering_copy(){
   clustering cl = clustering();
   
@@ -581,10 +628,9 @@ void clustering::write(string namefile){
       file << clusters[i].pts[j] << "\n";
     }
   }
-  file << "END";
+  file << "-1";
   file.close();
 }
-
 
 dataset clustering::createDt(dataset& initialDt, bool useMedoid){
   dataset dt = dataset(clusters.size(), J, initialDt.K);
