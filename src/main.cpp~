@@ -5,26 +5,10 @@
 using namespace std;
 
 int main(){
-  dataset dt = dataset("test");
-  clustering cl = clustering(dt, "clTest.txt", "bonsoir");
-
-  dataset dtCl = cl.createDt(dt);
-
-  model_type mt = model_type(baseModel::FOCT, true, false, true, false, true);
-  parameters p = parameters(2, dtCl, 0.1, 3, false, 1);
-
-  GRBEnv env = GRBEnv();
-  GRBModel m = GRBModel(env);
-
-  build_model md = build_model(m, dtCl, cl, mt, p);
-
-  solution sol = md.solve2(m);
-
   
-  /*
-  string datasetName = "wine";
+  string datasetName = "iris";
   learningWithClustering(datasetName);
-  */
+  
 
   return 0;
 }

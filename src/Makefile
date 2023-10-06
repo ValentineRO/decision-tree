@@ -30,12 +30,6 @@ iteratingOTP.o : iteratingOTP.cpp iteratingOTP.h models.h $(GUROBIDIR)/gurobi_c+
 models.o : models.cpp models.h model_utilities.h objective.h following_constraints.h branching_constraints.h tree_structuring_constraints.h counting_errors.h clustering.h
 	g++ -c -g models.cpp -I$(GUROBIDIR)
 
-clustering.o : clustering.cpp clustering.h clusters.h $(GUROBIDIR)/gurobi_c++.h
-	g++ -c -g clustering.cpp -I$(GUROBIDIR)
-
-clusters.o : clusters.cpp clusters.h model_utilities.h $(GUROBIDIR)/gurobi_c++.h
-	g++ -c -g clusters.cpp -I$(GUROBIDIR)
-
 objective.o : objective.cpp objective.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g objective.cpp -I$(GUROBIDIR)
 
@@ -45,8 +39,14 @@ following_constraints.o : following_constraints.cpp following_constraints.h  $(G
 tree_structuring_constraints.o : tree_structuring_constraints.cpp tree_structuring_constraints.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g tree_structuring_constraints.cpp -I$(GUROBIDIR)
 
-branching_constraints.o : branching_constraints.cpp branching_constraints.h $(GUROBIDIR)/gurobi_c++.h
+branching_constraints.o : branching_constraints.cpp branching_constraints.h clustering.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g branching_constraints.cpp -I$(GUROBIDIR)
+
+clustering.o : clustering.cpp clustering.h clusters.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g clustering.cpp -I$(GUROBIDIR)
+
+clusters.o : clusters.cpp clusters.h model_utilities.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g clusters.cpp -I$(GUROBIDIR)
 
 counting_errors.o : counting_errors.cpp counting_errors.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g counting_errors.cpp -I$(GUROBIDIR)

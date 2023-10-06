@@ -36,6 +36,7 @@ class solClust{
 bool isIntersecting(Tree T, clustering& cl, dataset& intialDt, dataset& currentDt, bool univ, int Nmin = 0);
 solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL=3600);
 solClust iteratingCART(dataset& dt, clustering& cl, parameters p);
+solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL=3600);
 /*
 void buildPR(GRBModel& md, dataset& dt, clustering& cl, model_type modelt, parameters p);
 solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, int timeL=3600);

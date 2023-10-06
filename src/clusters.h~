@@ -14,9 +14,7 @@ class cluster{
   int m; // index of the medoid
   double* bar; // position of the barycenter
   int J;
-  int lb; // label
-
-  int rep; // representative computed by the formulation with variable representatives
+  int lb;
 
   cluster();
   cluster(int id1, int label, double* pos1, int dim_pos);

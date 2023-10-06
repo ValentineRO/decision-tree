@@ -645,7 +645,7 @@ void clustering::write(string namefile){
   file.close();
 }
 
-dataset clustering::createDt(dataset& initialDt, bool useMedoid, bool useRep){
+dataset clustering::createDt(dataset& initialDt, bool useMedoid){
   dataset dt = dataset(clusters.size(), J, initialDt.K);
 
   dt.initialI = initialDt.I;
@@ -660,12 +660,7 @@ dataset clustering::createDt(dataset& initialDt, bool useMedoid, bool useRep){
 	dt.X[i*J+j]= initialDt.X[clusters[i].m*J+j];
       }
       else{
-	if (useRep){
-	  dt.X[i*J+j]= initialDt.X[clusters[i].rep*J+j];
-	}
-	else{
-	  dt.X[i*J+j] = clusters[i].bar[j];
-	}
+	dt.X[i*J+j] = clusters[i].bar[j];
       }
     }
   }

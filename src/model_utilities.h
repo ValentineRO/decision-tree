@@ -19,20 +19,22 @@ class model_type{
   bool eps;
   bool C_const;
   bool relaxation;
+  bool variableRep;
 
   model_type(){};
-  model_type(baseModel bm, bool u, bool e, bool c, bool r){
+  model_type(baseModel bm, bool u, bool e, bool c, bool r, bool v=false){
     base = bm;
     univ = u;
     eps = e;
     C_const = c;
     relaxation = r;
+    variableRep = v;
   }
 };
 
 class parameters{
  public :
-  int I,J,K,L_hat;
+  int I,initialI,J,K,L_hat;
   int D,L,N,E;
 
   int Nmin,C;
@@ -47,6 +49,7 @@ class parameters{
 
   parameters parameters_copy();
   void update(dataset &dt);
+  void updateMu(dataset &dt);
 };
 
 
@@ -76,6 +79,7 @@ class variables {
   GRBVar* Lt;
   GRBVar* Nt;
   GRBVar* Nkt;
+  GRBVar* r;
   GRBVar* theta; // Theta_kt = Theta[t*K + k] et theta_tik = theta[t*I*K + i*K + k]
   GRBVar* u; // u_ie = [i*E + e]
   GRBVar* z; // z_it = [i*N + t]

@@ -2,6 +2,12 @@
 
 parameters::parameters(int depth, dataset &dt, double alp, int param_C, bool have_Lhat, int param_Nmin){
   I = dt.I;
+  if (dt.weightedPoints){
+      initialI = dt.initialI;
+  }
+  else{
+    initialI = dt.I;
+  }
   J = dt.J;
   K = dt.K;
   
@@ -33,6 +39,7 @@ parameters parameters::parameters_copy(){
   parameters p = parameters();
 
   p.I = I;
+  p.initialI = initialI;
   p.J = J;
   p.K = K;
   p.L_hat = L_hat;
@@ -63,6 +70,21 @@ void parameters::update(dataset &dt){
   if (L_hat != 1){
     L_hat = dt.L_h;
   }
+  if (dt.weightedPoints){
+    initialI = dt.initialI;
+  }
+  else{
+    initialI = dt.I;
+  }
+  mu_min = dt.mu_min;
+  mu_max = dt.mu_max;
+
+  for (int j=0; j<J; j++){
+    mu_vect[j] = dt.mu_vect[j];
+  }
+}
+
+void parameters::updateMu(dataset &dt){
   mu_min = dt.mu_min;
   mu_max = dt.mu_max;
 
@@ -176,5 +198,10 @@ variables::variables(GRBModel& md, model_type mt, parameters p){
   else{
     variable_def z_var = variable_def("z", p.I * p.L, !mt.relaxation);
     z = md.addVars(z_var.lb, z_var.ub, z_var.coef, z_var.type, z_var.names, z_var.count);
+  }
+
+  if (mt.variableRep){
+    variable_def r_var = variable_def("r", p.initialI, !mt.relaxation);
+    r = md.addVars(r_var.lb, r_var.ub, r_var.coef, r_var.type, r_var.names, r_var.count);
   }
 }

@@ -48,4 +48,4 @@ void test(string dataset);
 void learning_test(string dataset, int depth_max, bool doOCT = true);
 //void testClustAncien(string datasetName, float time_l);
 //void testClust(string datasetName, float time_l, bool useAlgoLong=true);
-void createClusterings(string datasetName, bool useAlgoLong);
+void createClusterings(string datasetName);

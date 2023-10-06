@@ -643,16 +643,30 @@ void testClust(string datasetName, float time_l, bool useAlgoLong){
 }
 */
 
-void createClusterings(string datasetName, bool useAlgoLong){
+void createClusterings(string datasetName){
   dataset dt = dataset(datasetName);
 
-  int nbPart = 5;
-  int nbClustering = 6;
-  //int nbClustering = 39;
+  int nbPart = 5,
+    nbClustering;
 
-  string column_names[8] = {"numPart","clustType","time","% red","homogeneity","exclusion","consistency","meanDist"};
+  vector<string> typeOfClustering;
 
-  info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
+  if (dt.I/2<1000){
+    nbClustering = 7;
+    typeOfClustering = {"hierarchicalClustering5", "hierarchicalClustering10","hierarchicalClustering25",
+			"betterGreedyClustering", "hierarchicalClusteringGprop",
+			"barycenterClustering", "medoidClustering" };
+  }
+  else{
+    nbClustering = 6;
+    typeOfClustering = {"hierarchicalClustering1","hierarchicalClustering5", "hierarchicalClustering10",
+			"hierarchicalClustering25","betterGreedyClustering", "hierarchicalClusteringGprop"};
+  }
+  //string column_names[8] = {"Partition","clustType","time","%red","homogeneity","exclusion","consistency","meanDist"};
+  string column_names[8] = {"Partition","clustType","consistency"};
+  
+  //info_matrix iM = info_matrix(8,nbPart*nbClustering,column_names);
+  info_matrix iM = info_matrix(3,nbPart*nbClustering,column_names);
   
   for (int p=0; p<nbPart; p++){
     dataset dt_train, dt_test, dt_validation;
@@ -664,29 +678,38 @@ void createClusterings(string datasetName, bool useAlgoLong){
     vector<time_t> clzTimes;
     vector<string> clzNames;
 
-    time_t t1 = time (NULL);
-    clz.push_back(hierarchicalClustering(dt_train, 0.15));
-    time_t t2 = time (NULL);
-    clzTimes.push_back(t2-t1);
-    clzNames.push_back("hierarchicalClustering15");
+    time_t t1, t2;
+
+    if (dt.I/2>=1000){
+      t1 = time (NULL);
+      clz.push_back(pythonHierarchicalClustering(dt_train, 0.01));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("hierarchicalClustering1");
+    }
 
     t1 = time (NULL);
-    clz.push_back(hierarchicalClustering(dt_train, 0.35));
+    if (dt.I<300){
+      clz.push_back(hierarchicalClustering(dt_train, 0.05));
+    }
+    else{
+      clz.push_back(pythonHierarchicalClustering(dt_train, 0.05));
+    }
     t2 = time (NULL);
     clzTimes.push_back(t2-t1);
-    clzNames.push_back("hierarchicalClustering35");
+    clzNames.push_back("hierarchicalClustering5");
 
     t1 = time (NULL);
-    clz.push_back(homogeneousClustering(dt_train));
+    clz.push_back(pythonHierarchicalClustering(dt_train, 0.10));
     t2 = time (NULL);
     clzTimes.push_back(t2-t1);
-    clzNames.push_back("barycenterClustering");
+    clzNames.push_back("hierarchicalClustering10");
 
     t1 = time (NULL);
-    clz.push_back(homogeneousClustering(dt_train,true));
+    clz.push_back(pythonHierarchicalClustering(dt_train, 0.25));
     t2 = time (NULL);
     clzTimes.push_back(t2-t1);
-    clzNames.push_back("medoidClustering");
+    clzNames.push_back("hierarchicalClustering25");
 
     t1 = time (NULL);
     clz.push_back(weightedGreedyClustering(dt_train));
@@ -694,31 +717,49 @@ void createClusterings(string datasetName, bool useAlgoLong){
     clzTimes.push_back(t2-t1);
     clzNames.push_back("betterGreedyClustering");
 
-    float percRed = (float)clz[4].clusters.size()/dt_train.I;
-
+    float percRed = (float)clz.back().clusters.size()/(float)dt_train.I;
+    
     t1 = time (NULL);
-    clz.push_back(hierarchicalClustering(dt_train, percRed));
+    clz.push_back(pythonHierarchicalClustering(dt_train, percRed));
     t2 = time (NULL);
     clzTimes.push_back(t2-t1);
     clzNames.push_back("hierarchicalClusteringGprop");
 
+    if (dt.I/2<1000){
+      t1 = time (NULL);
+      clz.push_back(homogeneousClustering(dt_train));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("barycenterClustering");
+
+      t1 = time (NULL);
+      clz.push_back(homogeneousClustering(dt_train,true));
+      t2 = time (NULL);
+      clzTimes.push_back(t2-t1);
+      clzNames.push_back("medoidClustering");
+    }
+
+
     for (int c=0; c<clz.size(); c++){
-      string line[8];
+      string line[3];
       line[0] = to_string(p);
       line[1] = clzNames[c];
-      line[2] = to_string(clzTimes[c]);
-      line[3] = to_string((float)clz[c].clusters.size()/dt_train.I);
-      line[4] = to_string(clz[c].computeHomogeneity(dt_train));
-      line[5] = to_string(clz[c].computeExclusion(dt_train));
-      line[6] = to_string(clz[c].computeConsistency(dt_train));
-      line[7] = to_string(clz[c].computeMeanDist(dt_train));
+      line[2] = to_string(clz[c].computeConsistency(dt_train));
+      //line[3] = to_string((float)clz[c].clusters.size()/dt_train.I);
+      //line[4] = to_string(clz[c].computeHomogeneity(dt_train));
+      //line[5] = to_string(clz[c].computeExclusion(dt_train));
+      //line[6] = to_string(clz[c].computeConsistency(dt_train));
+      //line[7] = to_string(clz[c].computeMeanDist(dt_train));
 
       iM.write_line(p*nbClustering + c, line);
 
+      /*
       clz[c].write("../TreesAndPartitions/" + datasetName + "/part" + to_string(p) + "_" + clzNames[c] + "_NUMBERS.txt");
       dataset clDt = clz[c].createDt(dt_train, c == 3);
       clDt.writeDataset("../TreesAndPartitions/" + datasetName + "/part" + to_string(p) + "_" + clzNames[c] + ".txt");
+      */
     }
   }
-  iM.write_csv("../TreesAndPartitions/" + datasetName + "/clusteringStats.csv");
+  //iM.write_csv("../results/clusteringStats_"+ datasetName +".csv");
+  iM.write_csv("../results/consistencyStats_"+ datasetName +".csv");
 }

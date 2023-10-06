@@ -22,7 +22,7 @@ public :
   double* dists;
   int* repOfLabels;
   int* weights;
-  bool weightedPoints;
+  bool weightedPoints = false;
   int initialI;
     
   dataset();

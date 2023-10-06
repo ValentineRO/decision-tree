@@ -261,7 +261,7 @@ training_results_cl learningWithClustering(dataset& dt_train, dataset& dt_valida
     }
   }
   
-  model_type mt = model_type(bm, univ, false, true, false, true);
+  model_type mt = model_type(bm, univ, false, true, false,true);
 
   dominating_trees dom_trees = dominating_trees(nb_sol_tot,dt_train.L_h);
     

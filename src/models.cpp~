@@ -55,7 +55,7 @@ build_model::build_model(GRBModel& md, dataset& dt, clustering& cl, model_type m
     md.set(GRB_DoubleParam_OptimalityTol, GLOBAL_PRECISION); // comme la valeur par defaut
   }
   
-  md.write("model.lp");
+  //md.write("model.lp");
 }
 
 void build_model::add_warmstart(Tree T, dataset &dt){

@@ -30,8 +30,6 @@ dataset::dataset(){
   I = 0;
   J = 0;
   K = 0;
-
-  weightedPoints = false;
 }
 
 dataset::dataset(int I_, int J_, int K_) {
@@ -45,8 +43,6 @@ dataset::dataset(int I_, int J_, int K_) {
   for (int i=0; i<I; i++){
     weights[i] = 1;
   }
-
-  weightedPoints = false;
 }
 
 dataset::dataset(string namefile) {
@@ -75,7 +71,6 @@ dataset::dataset(string namefile) {
   }
   file.close();
   compute_mu();
-  weightedPoints = false;
   compute_L_hat();
 }
 

@@ -4,7 +4,6 @@
 #include "following_constraints.h"
 #include "tree_structuring_constraints.h"
 #include "counting_errors.h"
-#include "clustering.h"
 #include <string>
 #include <cmath>
 #include <iostream>
@@ -26,8 +25,10 @@ class build_model{
 
   build_model() {}
   build_model(GRBModel& md, dataset& dt, model_type modelt, parameters param);
+  build_model(GRBModel& md, dataset& dt, clustering& cl, model_type modelt, parameters param);
 
   void add_warmstart(Tree T, dataset& dt);
+  void completeWarmStartForVarRep(clustering &cl);
   void addWarmStartInConstraints(GRBModel& md, dataset& dt, Tree T);
   // void addClusteringWarmStart();
 

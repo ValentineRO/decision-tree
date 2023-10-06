@@ -779,13 +779,6 @@ solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters
     model.completeWarmStartForVarRep(clust);
     
     solution sol = model.solve2(md,timeL-solC.totTime);
-    for (int i=0; i<dt.I; i++){
-      if(model.var.r[i].get(GRB_DoubleAttr_X) > 0.99){
-	clust.clusters[clust.placeOf[clust.clusterOf[i]]].rep = i;
-      }
-    }
-    currentDt = clust.createDt(dt,false,true);
-    
     time_t t2 = time (NULL);
     solC.nbCl.push_back(clust.clusters.size()); // on met le nombre de cl considérés avant de potentiellement changer les clusters
     keepGoing = isIntersecting(sol.T, clust, dt, currentDt, modelt.univ, pm.Nmin);

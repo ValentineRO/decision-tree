@@ -87,4 +87,4 @@ training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, d
 
 training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt_test, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin);
 
-training_results_cl learningWithClustering(dataset& dt_train, dataset& dt_validation, dataset& dt_test, clustering cl, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin, int selectingStrat);
+training_results_cl learningWithClustering(dataset& dt_train, dataset& dt_validation, dataset& dt_test, clustering cl, baseModel bm, bool univ, int DMAX, double time_limit, int Nmin);
