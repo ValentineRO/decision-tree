@@ -84,17 +84,16 @@ void dataset::compute_mu(){
     for (int i1=0; i1<I; i1++){
       for (int i2=i1+1; i2<I; i2++){
 	double space = abs(X[i1*J+j]-X[i2*J+j]);
-	if (space != 0.0){
+	if (greaterThan(space,0.0)){
 	  mu_vect[j] = min(mu_vect[j],space);
 	}
       }
     }
+    
     mu_min = min(mu_min, mu_vect[j]);
     mu_max = max(mu_max, mu_vect[j]);
   }
 
-  mu_min = max(mu_min, mu); // we dont want it to be smaller than the globally defined precision
-  mu_max = max(mu_max, mu); // we dont want it to be smaller than the globally defined precision
 }
 
 void dataset::computeDists(){

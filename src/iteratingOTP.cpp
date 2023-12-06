@@ -29,6 +29,7 @@ bool isIntersectingBasic(Tree T, clustering& cl, dataset& initialDt, dataset& cu
   // currentDt must be made up of representatives
 
   int* predData = new int[initialDt.I];
+  T.predict_leaves(initialDt,predData);
   //int* predRep = new int[currentDt.I];
 
   bool isIntersecting = false;
@@ -817,7 +818,7 @@ solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, para
     currentDt.writeDataset("currD.txt");*/
     
     solution sol = model.solve2(md,timeL-solC.totTime);
-    //sol.T.write_tree("Clarbre.txt");
+    
     time_t t2 = time (NULL);
     solC.nbCl.push_back(clust.clusters.size()); // on met le nombre de cl considérés avant de potentiellement changer les clusters
     if (noSplitChange){
@@ -830,9 +831,9 @@ solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, para
       else{
 	keepGoing = isIntersecting(sol.T, clust, dt, currentDt, modelt.univ, pm.Nmin);
       }
+      //keepGoing = isIntersecting(sol.T, clust, dt, currentDt, modelt.univ, pm.Nmin);
     }
     time_t t3 = time (NULL);
-
     
     time_t prevTime12 = t2-t1,
       prevTime23 = t3-t2;
@@ -865,7 +866,7 @@ solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, para
       prevTime23 = 0;
     }
 
-    
+    /*
     // on récupère des infos mais c'est à court terme
     //freopen("yoooooooooooo.txt", "a", stdout);
     cout << "Iteration " << cpt << endl;

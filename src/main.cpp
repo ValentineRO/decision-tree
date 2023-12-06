@@ -47,8 +47,8 @@ int main(){
 	for (int s=0; s<2; s++){
 	  cout << ((s==0) ? "UNIV" : "MULTIV") << endl;
 	  parameters pm1 = parameters(DC[d].first, dt_train, (double)1/(double)(DC[d].second+1), DC[d].second, false, Nmin);
-	  model_type mt1 = model_type(baseModel::FOCT, s==0, false, true, false);
-	  model_type mt2 = model_type(baseModel::FOCT, s==0, false, true, false, true);
+	  model_type mt1 = model_type(baseModel::F, s==0, false, true, false);
+	  model_type mt2 = model_type(baseModel::F, s==0, false, true, false, true);
 
 	  string fileName = "./rez/"+dtName+"_part"+to_string(p)+"_D="+to_string(DC[d].first)+"_C="+to_string(DC[d].second);
 	  fileName += (s==0) ? "_UNIV" : "_MULTIV";
@@ -165,27 +165,27 @@ int main(){
   */
 
   
-  dataset dt = dataset("wine");
+  dataset dt = dataset("iris");
   
   dataset dt_train, dt_validation, dt_test;
-  dt.readPartition(0, dt_train, dt_validation, dt_test);
+  dt.readPartition(2, dt_train, dt_validation, dt_test);
 
   int  Nmin = (int)floor(dt_train.I*0.05);
   dt_train.computeDists();
   
-  clustering cl = hierarchicalClustering(dt_train, 0.25);
-//clustering cl = weightedGreedyClustering(dt_train);
+  //clustering cl = hierarchicalClustering(dt_train, 0.25);
+  clustering cl = weightedGreedyClustering(dt_train);
   dataset dtCl = cl.createDt(dt_train);
 
   int D = 2,
-    C = 3;
+    C = 2;
   
   parameters pm = parameters(D, dtCl, (double)1/(double)(C+1), C, false, Nmin);
-  model_type mt = model_type(baseModel::FOCT, false, false, true, false, true);
+  model_type mt = model_type(baseModel::FOCT, true, false, true, false);
 
   try {
     //solClust solC = iteratingOTP(dt_train, cl, mt, pm, false, 1800);
-    solClust solC = iteratingOTP(dt_train, cl, mt, pm, true, 1800);
+    solClust solC = approxIteratingOTP(dt_train, cl, mt, pm, false, 1800);
     solC.write("youpi.txt");
   } catch(GRBException e) {
     cout << "Error code = " << e.getErrorCode() << endl;
