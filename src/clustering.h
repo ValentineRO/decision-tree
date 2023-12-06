@@ -35,7 +35,7 @@ class clustering{
   clustering clustering_copy();
   
   pair<int,int> mergeClusters(int c1, int c2);
-  void breakCluster(int placeOfCluster, vector<vector<int>> div, dataset& initialDt);
+  void breakCluster(int placeOfCluster, vector<vector<int>> div, dataset& initialDt, bool variableRep=false);
   
   void showClusters();
   void showRepartition();

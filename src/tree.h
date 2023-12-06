@@ -32,6 +32,7 @@ public:
     void post_processing_b(dataset& dt, bool missClassifCounts=false, float rho=0.5); // remplir les valeurs de a, b etc avec le post-traitement sur b
     void post_processing_a_b(dataset& dt, bool missClassifCounts=false); // remplir les valeurs de a, b etc avec le post-traitement sur a et b
     void compute_ILIR(vector<int>* I_L, vector<int>* I_R, dataset& dt, bool missClassifCounts=false); // IL and IR must be empty
+    void compute_ILIR_t(vector<int>& I_L, vector<int>& I_R, int t, dataset& dt, bool missClassifCounts=false);
 
     // fonction permettant d'agrandir un arbre
     Tree bigger_tree(int new_D);
@@ -55,8 +56,11 @@ public:
     void data_points_in_last_split(dataset& dt, vector<int> points_in_node[]);
     void predict_leaves(dataset& dt, int leaves[]);
     void predict_paths(dataset& dt, vector<int> paths[]); // for F warm-start
+    void isGoodPrediction(dataset& dt, bool goodPred[]);
+    bool goodPredIfSwap(dataset& dt, int i, int t);
 
     // fonction permettant d'écrire ou lire un arbre avec des fichiers .txt
     void write_tree(string namefile);
+    void showTree();
     Tree(string namefile); // équivalent de la fonction read_tree
 };

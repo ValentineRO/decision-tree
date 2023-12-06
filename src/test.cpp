@@ -1,5 +1,7 @@
 #include "test.h"
 
+extern GurobiEnvironment& gurobiEnv;
+
 info_matrix::info_matrix(int n, int l, string col_names[]){
   nb_columns = n;
   nb_lines = l;
@@ -305,7 +307,8 @@ void test(string dataset_name){
 */
 
 void learning_test(string dataset_name, int depth_max, bool doOCT){
-  GRBEnv env = GRBEnv();
+  //GRBEnv env = GRBEnv();
+  GRBEnv& env = gurobiEnv.getEnvironment();
   dataset dt = dataset(dataset_name);
 
   int nb_models = 6,

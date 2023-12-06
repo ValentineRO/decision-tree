@@ -1,5 +1,7 @@
 #include "train_tree.h"
 
+extern GurobiEnvironment& gurobiEnv;
+
 string model_name(baseModel bm, bool univ){
   string s;
   if (bm == baseModel::F){s = "F";}
@@ -37,7 +39,8 @@ training_results learning_Bertsimas(dataset& dt_train, dataset& dt_validation, d
     for (int C=D; C<=CMAX; C++){
       cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
       freopen("gurobi_text.txt", "a", stdout);
-      GRBEnv env = GRBEnv();
+      //GRBEnv env = GRBEnv();
+      GRBEnv& env = gurobiEnv.getEnvironment();
       parameters p = parameters(D,dt_train,0,C,false,Nmin);
 
       string CARTnamefile;
@@ -127,7 +130,8 @@ training_results learning(dataset& dt_train, dataset& dt_validation, dataset& dt
       tr.globalNbIter += 1;
       cout << "D = " << D << " et C = " << C << " / CMAX = " << CMAX << endl;
       freopen("gurobi_text.txt", "a", stdout);
-      GRBEnv env = GRBEnv();
+      //GRBEnv env = GRBEnv();
+      GRBEnv& env = gurobiEnv.getEnvironment();
       parameters p = parameters(D,dt_train,1.0/(2*C),C,false,Nmin);
 
       string CARTnamefile;

@@ -1,6 +1,7 @@
 #pragma once
 #include "models.h"
 #include "gurobi_c++.h"
+#include <cmath>
 using namespace std;
 
 class solClust{
@@ -10,8 +11,8 @@ class solClust{
   int nbIter, nbClInitial, nbClFinal;
   double pseudoGap;
   vector<time_t> solveTime, centeringTime;
-  vector<double> gap;
-  vector<int> nbCl, obj, errCl, errDt;
+  vector<double> gap, obj;
+  vector<int> nbCl, errCl, errDt;
   clustering finalCl;
 
   solClust(){
@@ -25,7 +26,7 @@ class solClust{
     gap = {};
     nbCl = {};
     obj = {};
-    errCl = {};
+    errCl = {}; 
     errDt = {};
   }
 
@@ -33,11 +34,9 @@ class solClust{
   void write(string filename);
 };
 
-bool isIntersecting(Tree T, clustering& cl, dataset& intialDt, dataset& currentDt, bool univ, int Nmin = 0);
-solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL=3600);
+bool isIntersectingBasic(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool variableRep=false);
+bool isIntersectingUNIV(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool variableRep=false);
+bool isIntersecting(Tree T, clustering& cl, dataset& initialDt, dataset& currentDt, bool univ, int Nmin = 0, bool variableRep=false);
+solClust approxIteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, bool noSplitChange = false, double timeL=3600);
 solClust iteratingCART(dataset& dt, clustering& cl, parameters p);
-solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, double timeL=3600);
-/*
-void buildPR(GRBModel& md, dataset& dt, clustering& cl, model_type modelt, parameters p);
-solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, int timeL=3600);
-*/
+solClust iteratingOTP(dataset& dt, clustering& cl, model_type modelt, parameters p, bool noSplitChange = false, double timeL=3600);

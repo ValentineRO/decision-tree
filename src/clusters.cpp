@@ -27,15 +27,15 @@ void cluster::computeBarycenter(dataset& dt){
 void cluster::computeMedoid(dataset& dt){
   double distMin = 10;
   int ind = -1;
-  for (int i=0; i<pts.size(); i++){
+  for (auto i: pts){
     double d = 0;
     for (int j=0; j<J; j++){
-      d += (bar[j] - dt.X[pts[i]*J+j])*(bar[j] - dt.X[pts[i]*J+j]);
+      d += (bar[j] - dt.X[i*J+j])*(bar[j] - dt.X[i*J+j]);
     }
 
     if (d<distMin){
       distMin = d;
-      ind = pts[i];
+      ind = i;
     }
   }
 
@@ -64,8 +64,10 @@ void cluster::updateLabel(dataset& dt){
 cluster cluster::cluster_copy(){
   cluster cl = cluster(id, lb, bar, J);
 
-  for (int i=1; i<pts.size(); i++){
-    cl.pts.push_back(pts[i]);
+  for (auto i: pts){
+    if (i != id){
+      cl.pts.push_back(i);
+    }
   }
   cl.m = m;
 

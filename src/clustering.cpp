@@ -1,5 +1,7 @@
 #include "clustering.h"
 
+extern GurobiEnvironment& gurobiEnv;
+
 vector<distCl> initializeDist(dataset& dt){
   vector<distCl> v;
 
@@ -423,11 +425,20 @@ pair<int,int> clustering::mergeClusters(int c1, int c2){ // note that c1 and c2 
   return pair<int,int>(c1,c2);	  
 }
 
-void clustering::breakCluster(int placeOfCluster, vector<vector<int>> div, dataset& initialDt){ 
+void clustering::breakCluster(int placeOfCluster, vector<vector<int>> div, dataset& initialDt, bool variableRep){
   clusters[placeOfCluster].pts = div[0];
   clusters[placeOfCluster].id = *min_element(div[0].begin(), div[0].end());
-  clusters[placeOfCluster].computeBarycenter(initialDt);
-  clusters[placeOfCluster].computeMedoid(initialDt);
+  // clusters[placeOfCluster].computeBarycenter(initialDt); // a ne pas faire sinon ça perturbe approxItOPT
+  //clusters[placeOfCluster].computeMedoid(initialDt);
+  for (auto i: clusters[placeOfCluster].pts){
+    clusterOf[i] = clusters[placeOfCluster].id;
+  }
+  /* // I dont think we want to change the representative of the cluster containing the rep, we suppose that div[0] is containing the rep
+  if (variableRep){
+    clusters[placeOfCluster].rep = clusters[placeOfCluster].m;
+  }
+  */
+  placeOf[clusters[placeOfCluster].id] = placeOfCluster;
 
   for (int g=1; g<div.size(); g++){
     int id = *min_element(div[g].begin(), div[g].end());
@@ -441,15 +452,18 @@ void clustering::breakCluster(int placeOfCluster, vector<vector<int>> div, datas
       clusterOf[div[g][i]] = id;
     }
     clusters[clusters.size()-1].computeBarycenter(initialDt);
-    clusters[clusters.size()-1].computeMedoid(initialDt);	       
+    clusters[clusters.size()-1].computeMedoid(initialDt);
+    if (variableRep){
+      clusters[clusters.size()-1].rep = clusters[clusters.size()-1].m;
+    }
   }
 }
 
 void clustering::showClusters(){
   for (int n=0; n<clusters.size(); n++){
-    cout << "Cluster " << n <<endl; 
-    for (int i=0; i< clusters[n].pts.size(); i++){
-      cout << clusters[n].pts[i] << "  ";
+    cout << "Cluster " << n << ": "; 
+    for (auto i: clusters[n].pts){
+      cout << i << "  ";
     }
     cout << endl;
   }
@@ -510,7 +524,8 @@ float clustering::computeExclusion(dataset& dt){
     isIntersected[c] = false;
   }
 
-  GRBEnv env = GRBEnv();
+  //GRBEnv env = GRBEnv();
+  GRBEnv& env = gurobiEnv.getEnvironment();
   int cpt = 0;
   for (int c1=0; c1<clusters.size(); c1++){
     for (int c2=c1+1; c2<clusters.size(); c2++){
@@ -904,7 +919,8 @@ clustering optimalClustering(dataset& dt, int maxCl, float H){
     CMAX = dt.I;
   }
   
-  GRBEnv env = GRBEnv();
+  //GRBEnv env = GRBEnv();
+  GRBEnv& env = gurobiEnv.getEnvironment();
   GRBModel md = GRBModel(env);
 
   int* cN = new int[dt.I]; // closest neighbor of i

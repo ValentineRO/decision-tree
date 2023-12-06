@@ -1,6 +1,6 @@
 GUROBIDIR =/home/hurev/gurobi911/linux64/include
 GUROBILIBDIR =/home/hurev/gurobi911/linux64/lib
-CXXFLAGS = -g -Wall -Wextra
+CXXFLAGS = -g -Wall -Wextra 
 LD=g++
 
 LDFLAGS=-g -m64 -fPIC -D_GLIBC_DEBUG -DNOSHORTS -fopenmp 
@@ -9,8 +9,8 @@ EXEC=decision_tree
 
 all:$(EXEC)
 
-$(EXEC): main.o testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o
-	$(LD) main.cpp $(LDFLAGS)  -I$(GUROBIDIR) -o  $(EXEC) testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o -ldl -lpthread -L$(LIB64DIR) -llapack -lblas -lgfortran -lm -L$(GUROBILIBDIR) -lgurobi_g++5.2 -lgurobi91
+$(EXEC): main.o testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o GurobiEnvironment.o
+	$(LD) main.cpp $(LDFLAGS)  -I$(GUROBIDIR) -o  $(EXEC) testv2.o test.o train_tree.o iteratingOTP.o models.o solution.o model_utilities.o clustering.o clusters.o objective.o following_constraints.o tree_structuring_constraints.o branching_constraints.o counting_errors.o CART.o tree.o data_formatting.o utilities.o GurobiEnvironment.o -ldl -lpthread -L$(LIB64DIR) -llapack -lblas -lgfortran -lm -L$(GUROBILIBDIR) -lgurobi_g++5.2 -lgurobi91
 
 main.o : main.cpp test.h
 	g++ -c -g main.cpp -I$(GUROBIDIR)
@@ -63,11 +63,14 @@ CART.o : CART.cpp CART.h tree.h $(GUROBIDIR)/gurobi_c++.h
 tree.o: tree.cpp tree.h data_formatting.h $(GUROBIDIR)/gurobi_c++.h
 	g++ -c -g tree.cpp -I$(GUROBIDIR)
 
-data_formatting.o: data_formatting.cpp data_formatting.h utilities.h
-	g++ -c -g data_formatting.cpp 
+data_formatting.o: data_formatting.cpp data_formatting.h utilities.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g data_formatting.cpp -I$(GUROBIDIR)
 
-utilities.o: utilities.cpp utilities.h
-	g++ -c -g utilities.cpp
+utilities.o: utilities.cpp utilities.h GurobiEnvironment.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g utilities.cpp -I$(GUROBIDIR)
+
+GurobiEnvironment.o : GurobiEnvironment.cpp GurobiEnvironment.h $(GUROBIDIR)/gurobi_c++.h
+	g++ -c -g GurobiEnvironment.cpp -I$(GUROBIDIR)
 
 clean :
 	rm *.o

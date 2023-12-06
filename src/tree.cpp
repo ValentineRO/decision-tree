@@ -1,5 +1,7 @@
 #include "tree.h"
 
+extern GurobiEnvironment& gurobiEnv;
+
 Tree::Tree(){
     D = 0;
     J = 0;
@@ -196,6 +198,40 @@ void Tree::compute_ILIR(vector<int>* I_L, vector<int>* I_R, dataset& dt,  bool m
   }
 }
 
+void Tree::compute_ILIR_t(vector<int>& I_L, vector<int>& I_R, int t, dataset& dt,  bool missClassifCounts){
+  int* pred = new int[dt.I];
+  predict_classes(dt,pred);
+  
+  for (int i=0; i<dt.I; i++){
+    if (missClassifCounts||((!missClassifCounts)&&(pred[i]==dt.Y[i]))){
+      int node = 0;
+      for (int d=0; d<D; d++){
+	if (c[node]>=0){
+	  break;
+	}	
+	double sum = 0;
+	for (int j=0; j<J;j++){
+	  sum += dt.X[i*J+j]*a[node*J+j];
+	}
+	if (lessThan(sum,b[node])){
+	  if (node == t){
+	    I_L.push_back(i);
+	    break;
+	  }
+	  node = 2*node+1;
+	}
+	else{
+	  if (node == t){
+	    I_R.push_back(i);
+	    break;
+	  }
+	  node = node*2 +2;
+	}
+      }
+    }
+  }
+}
+
 void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
   int* pred = new int[dt.I];
   predict_classes(dt,pred);
@@ -204,7 +240,8 @@ void Tree::post_processing_a_b(dataset& dt, bool missClassifCounts){
   vector<int>* I_R = new vector<int>[N];
   compute_ILIR(I_L, I_R, dt, missClassifCounts);
   
-  GRBEnv env = GRBEnv();
+  //GRBEnv env = GRBEnv();
+  GRBEnv& env = gurobiEnv.getEnvironment();
   for (int t=0; t<N; t++){    
     if (I_L[t].size() !=0 && I_R[t].size() !=0){
       int sum_sj_star = 0;
@@ -453,7 +490,8 @@ bool Tree::changeSplit(int t, vector<int> points, int& misclassif, dataset& dt, 
   }
   
   
-  GRBEnv env = GRBEnv();
+  //GRBEnv env = GRBEnv();
+  GRBEnv& env = gurobiEnv.getEnvironment();
   GRBModel md = GRBModel(env);
 
   GRBVar* var_a = md.addVars(J, GRB_CONTINUOUS);
@@ -787,6 +825,44 @@ void Tree::predict_paths(dataset& dt, vector<int> paths[]){
   }
 }
 
+void Tree::isGoodPrediction(dataset& dt, bool goodPred[]){
+  for (int i=0; i<dt.I; i++){
+    int node = 1;
+    for (int d=0; d<D;d++){
+      if (c[node-1]>=0){
+	break;
+      }
+      double sum=0;
+      for (int j=0; j<J;j++){
+	sum += dt.X[i*J+j]*a[(node-1)*J+j];
+      }
+      if (lessThan(sum,b[node-1])){node = 2*node;}
+      else{node = 2*node+1;}
+    }
+    goodPred[i] = (c[node-1] == dt.Y[i]);
+  }
+}
+
+bool Tree::goodPredIfSwap(dataset& dt, int i, int t){
+  int node = 1;
+  for (int d=0; d<D;d++){
+    if (c[node-1]>=0){
+      break;
+    }
+    double sum=0;
+    for (int j=0; j<J;j++){
+      sum += dt.X[i*J+j]*a[(node-1)*J+j];
+    }
+    bool goingLeft = lessThan(sum,b[node-1]);
+    if (t==node-1){ // that is the node we swap
+      goingLeft = !goingLeft;
+    }
+    if (goingLeft){node = 2*node;}
+    else{node = 2*node+1;}
+  }
+  return (c[node-1] == dt.Y[i]);
+}
+
 void Tree::write_tree(string namefile){
     fstream file;
     file.open(namefile,ios::out);
@@ -807,6 +883,38 @@ void Tree::write_tree(string namefile){
         file << c[t+N]<< "\n";
     }
     file.close();
+}
+
+void Tree::showTree(){
+  cout << "Tree of maximum depth " << D << endl;
+  for (int t=0; t<N; t++){
+    cout << "Node " << t << ": " << endl;
+    bool nothing = true;
+    for (int j=0; j<J; j++){
+      if (a[t*J+j] != 0){
+	if (a[t*J+j]>0){
+	  cout << "+ " ;
+	}
+	else{
+	  cout << "- ";
+	}
+	cout << a[t*J+j] << "x_" << j << " < " << b[t];
+	nothing = false;
+      }
+    }
+    if (nothing){
+      if (c[t] != -1){
+	cout << "Assigning label " << c[t] ;
+      }
+      else{
+	cout << "No split";
+      }
+    }
+    cout << endl;
+  }
+  for (int l=0; l<L; l++){
+    cout << "Leaf " << l << ": " << c[N+l] << endl;;
+  }
 }
 
 Tree::Tree(string namefile){
